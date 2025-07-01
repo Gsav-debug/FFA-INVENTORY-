@@ -108,181 +108,237 @@
             border-radius: 10px;
             border: 1px solid #ccc;
         }
+        .summary {
+            background: #ffe6f0;
+            padding: 1rem;
+            border-radius: 10px;
+            margin: 1rem 0;
+            text-align: center;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header fade-in">
-            <h1><i class="fas fa-gem"></i> Boss Babe Inventory</h1>
-            <p>Track your products like a CEO ✨ UK to Senegal</p>
-        </div>
+<div class="container">
+    <div class="header fade-in">
+        <h1><i class="fas fa-gem"></i> Boss Babe Inventory</h1>
+        <p>Track your products like a CEO ✨ UK to Senegal</p>
+    </div>
 
-        <div class="form-section fade-in">
-            <h2 class="form-title"><i class="fas fa-plus-circle"></i> Add Product</h2>
-            <div class="form-grid">
-                <div class="form-group">
-                    <label><i class="fas fa-tag"></i> Product Name *</label>
-                    <input type="text" id="productName" placeholder="E.g., Pink Sunglasses">
-                </div>
-                <div class="form-group">
-                    <label><i class="fas fa-cubes"></i> Quantity in Stock *</label>
-                    <input type="number" id="quantityStock" min="1" placeholder="0">
-                </div>
-                <div class="form-group">
-                    <label><i class="fas fa-pound-sign"></i> Original Cost Price *</label>
-                    <input type="number" id="originalCost" step="0.01" placeholder="0.00">
-                </div>
-                <div class="form-group">
-                    <label><i class="fas fa-truck"></i> Transport Cost</label>
-                    <input type="number" id="transportCost" step="0.01" placeholder="0.00">
-                </div>
-                <div class="form-group">
-                    <label><i class="fas fa-ship"></i> Shipping Cost (UK ➞ Senegal)</label>
-                    <input type="number" id="shippingCost" step="0.01" placeholder="0.00">
-                </div>
-                <div class="form-group">
-                    <label><i class="fas fa-money-bill"></i> Unit Price *</label>
-                    <input type="number" id="unitPrice" step="0.01" placeholder="0.00">
-                </div>
-                <div class="form-group">
-                    <label><i class="fas fa-calendar-alt"></i> Expiration Date</label>
-                    <input type="date" id="expirationDate">
-                </div>
-                <div class="form-group">
-                    <label><i class="fas fa-image"></i> Product Image</label>
-                    <input type="file" id="productImage" accept="image/*">
-                </div>
+    <div class="form-section fade-in">
+        <h2 class="form-title"><i class="fas fa-plus-circle"></i> Add / Edit Product</h2>
+        <div class="form-grid">
+            <div class="form-group">
+                <label><i class="fas fa-tag"></i> Product Name *</label>
+                <input type="text" id="productName">
             </div>
-            <div class="btn-container">
-                <button class="btn btn-primary" onclick="addProduct()"><i class="fas fa-plus"></i> Add</button>
-                <button class="btn btn-secondary" onclick="exportData()"><i class="fas fa-download"></i> Export</button>
-                <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData()">
-                <button class="btn btn-secondary" onclick="document.getElementById('importFile').click()"><i class="fas fa-upload"></i> Import</button>
-                <button class="btn btn-danger" onclick="clearAll()"><i class="fas fa-trash"></i> Clear All</button>
+            <div class="form-group">
+                <label><i class="fas fa-cubes"></i> Quantity in Stock *</label>
+                <input type="number" id="quantityStock" min="1">
+            </div>
+            <div class="form-group">
+                <label><i class="fas fa-pound-sign"></i> Original Cost Price (CFA) *</label>
+                <input type="number" id="originalCost" step="0.01">
+            </div>
+            <div class="form-group">
+                <label><i class="fas fa-truck"></i> Transport Cost (CFA)</label>
+                <input type="number" id="transportCost" step="0.01">
+            </div>
+            <div class="form-group">
+                <label><i class="fas fa-ship"></i> Shipping Cost (CFA)</label>
+                <input type="number" id="shippingCost" step="0.01">
+            </div>
+            <div class="form-group">
+                <label><i class="fas fa-money-bill"></i> Unit Price (CFA) *</label>
+                <input type="number" id="unitPrice" step="0.01">
+            </div>
+            <div class="form-group">
+                <label><i class="fas fa-calendar-alt"></i> Expiration Date</label>
+                <input type="date" id="expirationDate">
+            </div>
+            <div class="form-group">
+                <label><i class="fas fa-image"></i> Product Image</label>
+                <input type="file" id="productImage" accept="image/*">
             </div>
         </div>
-
-        <div class="search-bar fade-in">
-            <input type="text" id="searchInput" placeholder="Search products..." oninput="displayInventory()">
-        </div>
-
-        <div class="inventory-section fade-in">
-            <div id="inventoryGrid"></div>
+        <div class="btn-container">
+            <button class="btn btn-primary" onclick="addProduct()"><i class="fas fa-plus"></i> Save</button>
+            <button class="btn btn-secondary" onclick="exportData()"><i class="fas fa-download"></i> Export</button>
+            <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData()">
+            <button class="btn btn-secondary" onclick="document.getElementById('importFile').click()"><i class="fas fa-upload"></i> Import</button>
+            <button class="btn btn-danger" onclick="clearAll()"><i class="fas fa-trash"></i> Clear All</button>
         </div>
     </div>
 
-    <script>
-        let inventory = JSON.parse(localStorage.getItem('inventory')) || [];
-        let productIdCounter = parseInt(localStorage.getItem('productIdCounter')) || 1;
+    <div class="search-bar fade-in">
+        <input type="text" id="searchInput" placeholder="Search products..." oninput="displayInventory()">
+    </div>
 
-        function addProduct() {
-            const name = document.getElementById('productName').value.trim();
-            const quantityStock = parseInt(document.getElementById('quantityStock').value);
-            const originalCost = parseFloat(document.getElementById('originalCost').value);
-            const transportCost = parseFloat(document.getElementById('transportCost').value) || 0;
-            const shippingCost = parseFloat(document.getElementById('shippingCost').value) || 0;
-            const unitPrice = parseFloat(document.getElementById('unitPrice').value);
-            const expirationDate = document.getElementById('expirationDate').value;
-            const imageFile = document.getElementById('productImage').files[0];
+    <div class="summary" id="summaryStats"></div>
 
-            if (!name || !quantityStock || !originalCost || !unitPrice) {
-                alert('Please complete all required fields.');
-                return;
-            }
+    <div class="inventory-section fade-in">
+        <div id="inventoryGrid"></div>
+    </div>
+</div>
 
-            const totalCostPerUnit = originalCost + (transportCost / quantityStock) + (shippingCost / quantityStock);
-            const totalValue = unitPrice * quantityStock;
-            const totalProfit = (unitPrice - totalCostPerUnit) * quantityStock;
+<script>
+let inventory = JSON.parse(localStorage.getItem('inventory')) || [];
+let productIdCounter = parseInt(localStorage.getItem('productIdCounter')) || 1;
+let editId = null;
 
-            const product = {
-                id: productIdCounter++,
-                name,
-                quantityStock,
-                originalCost,
-                transportCost,
-                shippingCost,
-                unitPrice,
-                expirationDate,
-                totalValue,
-                totalProfit,
-                image: imageFile ? URL.createObjectURL(imageFile) : null
-            };
+function addProduct() {
+    const name = document.getElementById('productName').value.trim();
+    const quantityStock = parseInt(document.getElementById('quantityStock').value);
+    const originalCost = parseFloat(document.getElementById('originalCost').value);
+    const transportCost = parseFloat(document.getElementById('transportCost').value) || 0;
+    const shippingCost = parseFloat(document.getElementById('shippingCost').value) || 0;
+    const unitPrice = parseFloat(document.getElementById('unitPrice').value);
+    const expirationDate = document.getElementById('expirationDate').value;
+    const imageFile = document.getElementById('productImage').files[0];
 
-            inventory.push(product);
-            saveAndRefresh();
-        }
+    if (!name || !quantityStock || !originalCost || !unitPrice) {
+        alert('Please complete all required fields.');
+        return;
+    }
 
-        function saveAndRefresh() {
-            localStorage.setItem('inventory', JSON.stringify(inventory));
-            localStorage.setItem('productIdCounter', productIdCounter);
-            displayInventory();
-        }
+    const totalCostPerUnit = originalCost + (transportCost / quantityStock) + (shippingCost / quantityStock);
+    const totalValue = unitPrice * quantityStock;
+    const totalProfit = (unitPrice - totalCostPerUnit) * quantityStock;
 
-        function displayInventory() {
-            const inventoryGrid = document.getElementById('inventoryGrid');
-            const search = document.getElementById('searchInput').value.toLowerCase();
-            inventoryGrid.innerHTML = '';
+    const product = {
+        id: editId || productIdCounter++,
+        name,
+        quantityStock,
+        originalCost,
+        transportCost,
+        shippingCost,
+        unitPrice,
+        expirationDate,
+        totalValue,
+        totalProfit,
+        image: imageFile ? URL.createObjectURL(imageFile) : (editId ? inventory.find(p => p.id === editId).image : null)
+    };
 
-            inventory.filter(p => p.name.toLowerCase().includes(search)).forEach(product => {
-                const card = document.createElement('div');
-                card.className = 'product-card';
+    if (editId) {
+        inventory = inventory.map(p => p.id === editId ? product : p);
+        editId = null;
+    } else {
+        inventory.push(product);
+    }
 
-                const qrContainerId = `qrcode-${product.id}`;
+    saveAndRefresh();
+    clearForm();
+}
 
-                card.innerHTML = `
-                    <h3>${product.name}</h3>
-                    <p>Quantity: ${product.quantityStock}</p>
-                    <p>Original Cost: £${product.originalCost.toFixed(2)}</p>
-                    <p>Unit Price: £${product.unitPrice.toFixed(2)}</p>
-                    <p>Profit per Unit: £${(product.unitPrice - (product.originalCost + (product.transportCost/product.quantityStock) + (product.shippingCost/product.quantityStock))).toFixed(2)}</p>
-                    <p>Total Profit: £${product.totalProfit.toFixed(2)}</p>
-                    <p>Expiration: ${product.expirationDate || 'N/A'}</p>
-                    ${product.image ? `<img src="${product.image}" alt="${product.name}">` : ''}
-                    <div id="${qrContainerId}"></div>
-                `;
+function clearForm() {
+    document.getElementById('productName').value = '';
+    document.getElementById('quantityStock').value = '';
+    document.getElementById('originalCost').value = '';
+    document.getElementById('transportCost').value = '';
+    document.getElementById('shippingCost').value = '';
+    document.getElementById('unitPrice').value = '';
+    document.getElementById('expirationDate').value = '';
+    document.getElementById('productImage').value = '';
+}
 
-                inventoryGrid.appendChild(card);
+function displayInventory() {
+    const grid = document.getElementById('inventoryGrid');
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    grid.innerHTML = '';
 
-                const qrContent = `Product: ${product.name}\nStock: ${product.quantityStock}\nUnit Price: £${product.unitPrice.toFixed(2)}\nProfit per Unit: £${(product.unitPrice - (product.originalCost + (product.transportCost/product.quantityStock) + (product.shippingCost/product.quantityStock))).toFixed(2)}`;
+    let totalValue = 0, totalProfit = 0;
 
-                const qrContainer = document.getElementById(qrContainerId);
-                QRCode.toCanvas(qrContent, { width: 80 }, (err, canvas) => {
-                    if (!err && qrContainer) qrContainer.appendChild(canvas);
-                });
-            });
-        }
+    inventory.filter(p => p.name.toLowerCase().includes(search)).forEach(product => {
+        totalValue += product.totalValue;
+        totalProfit += product.totalProfit;
 
-        function exportData() {
-            const blob = new Blob([JSON.stringify(inventory)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'BossBabeInventory.json';
-            a.click();
-            URL.revokeObjectURL(url);
-        }
+        const card = document.createElement('div');
+        card.className = 'product-card';
 
-        function importData() {
-            const file = document.getElementById('importFile').files[0];
-            const reader = new FileReader();
-            reader.onload = e => {
-                inventory = JSON.parse(e.target.result);
-                productIdCounter = inventory.length ? Math.max(...inventory.map(p => p.id)) + 1 : 1;
-                saveAndRefresh();
-            };
-            reader.readAsText(file);
-        }
+        const lowStock = product.quantityStock <= 3 ? '🔥 Low Stock!' : '';
 
-        function clearAll() {
-            if (confirm('Wipe all inventory data?')) {
-                inventory = [];
-                productIdCounter = 1;
-                localStorage.clear();
-                displayInventory();
-            }
-        }
+        card.innerHTML = `
+            <h3>${product.name} ${lowStock}</h3>
+            <p>Quantity: ${product.quantityStock}</p>
+            <p>Original Cost: ${product.originalCost.toFixed(2)} CFA</p>
+            <p>Unit Price: ${product.unitPrice.toFixed(2)} CFA</p>
+            <p>Total Profit: ${product.totalProfit.toFixed(2)} CFA</p>
+            <p>Expires: ${product.expirationDate || 'N/A'}</p>
+            ${product.image ? `<img src="${product.image}" alt="${product.name}">` : ''}
+            <div id="qrcode-${product.id}"></div>
+            <button class="btn btn-primary" onclick="editProduct(${product.id})">Edit</button>
+            <button class="btn btn-danger" onclick="deleteProduct(${product.id})">Delete</button>
+        `;
 
+        grid.appendChild(card);
+
+        const qrData = `Product: ${product.name}\nPrice: ${product.unitPrice.toFixed(2)} CFA\nExpires: ${product.expirationDate || 'N/A'}`;
+        QRCode.toCanvas(document.createElement('canvas'), qrData, { width: 100 }, (err, canvas) => {
+            if (!err) document.getElementById(`qrcode-${product.id}`).appendChild(canvas);
+        });
+    });
+
+    document.getElementById('summaryStats').innerText = 
+        `Total Inventory Value: ${totalValue.toFixed(2)} CFA | Total Expected Profit: ${totalProfit.toFixed(2)} CFA`;
+}
+
+function editProduct(id) {
+    const p = inventory.find(prod => prod.id === id);
+    editId = id;
+    document.getElementById('productName').value = p.name;
+    document.getElementById('quantityStock').value = p.quantityStock;
+    document.getElementById('originalCost').value = p.originalCost;
+    document.getElementById('transportCost').value = p.transportCost;
+    document.getElementById('shippingCost').value = p.shippingCost;
+    document.getElementById('unitPrice').value = p.unitPrice;
+    document.getElementById('expirationDate').value = p.expirationDate;
+}
+
+function deleteProduct(id) {
+    if (confirm('Delete this product?')) {
+        inventory = inventory.filter(p => p.id !== id);
+        saveAndRefresh();
+    }
+}
+
+function exportData() {
+    const blob = new Blob([JSON.stringify(inventory)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'BossBabeInventory.json';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function importData() {
+    const file = document.getElementById('importFile').files[0];
+    const reader = new FileReader();
+    reader.onload = e => {
+        inventory = JSON.parse(e.target.result);
+        productIdCounter = inventory.length ? Math.max(...inventory.map(p => p.id)) + 1 : 1;
+        saveAndRefresh();
+    };
+    reader.readAsText(file);
+}
+
+function clearAll() {
+    if (confirm('Wipe all inventory data?')) {
+        inventory = [];
+        productIdCounter = 1;
+        localStorage.clear();
         displayInventory();
-    </script>
+    }
+}
+
+function saveAndRefresh() {
+    localStorage.setItem('inventory', JSON.stringify(inventory));
+    localStorage.setItem('productIdCounter', productIdCounter);
+    displayInventory();
+}
+
+displayInventory();
+</script>
 </body>
 </html>
+
