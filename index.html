@@ -137,7 +137,7 @@
                     <input type="number" id="transportCost" step="0.01" placeholder="0.00">
                 </div>
                 <div class="form-group">
-                    <label><i class="fas fa-ship"></i> Shipping Cost (UK ➡ Senegal)</label>
+                    <label><i class="fas fa-ship"></i> Shipping Cost (UK ➞ Senegal)</label>
                     <input type="number" id="shippingCost" step="0.01" placeholder="0.00">
                 </div>
                 <div class="form-group">
@@ -227,6 +227,8 @@
                 const card = document.createElement('div');
                 card.className = 'product-card';
 
+                const qrContainerId = `qrcode-${product.id}`;
+
                 card.innerHTML = `
                     <h3>${product.name}</h3>
                     <p>Quantity: ${product.quantityStock}</p>
@@ -236,13 +238,16 @@
                     <p>Total Profit: £${product.totalProfit.toFixed(2)}</p>
                     <p>Expiration: ${product.expirationDate || 'N/A'}</p>
                     ${product.image ? `<img src="${product.image}" alt="${product.name}">` : ''}
-                    <div id="qrcode-${product.id}"></div>
+                    <div id="${qrContainerId}"></div>
                 `;
 
                 inventoryGrid.appendChild(card);
 
-                QRCode.toCanvas(document.createElement('canvas'), product.name, { width: 80 }, (err, canvas) => {
-                    if (!err) document.getElementById(`qrcode-${product.id}`).appendChild(canvas);
+                const qrContent = `Product: ${product.name}\nStock: ${product.quantityStock}\nUnit Price: £${product.unitPrice.toFixed(2)}\nProfit per Unit: £${(product.unitPrice - (product.originalCost + (product.transportCost/product.quantityStock) + (product.shippingCost/product.quantityStock))).toFixed(2)}`;
+
+                const qrContainer = document.getElementById(qrContainerId);
+                QRCode.toCanvas(qrContent, { width: 80 }, (err, canvas) => {
+                    if (!err && qrContainer) qrContainer.appendChild(canvas);
                 });
             });
         }
