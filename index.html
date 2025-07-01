@@ -3,776 +3,177 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FFA</title>
+    <title>✨ Boss Babe Inventory Manager ✨</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        :root {
-            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            --accent-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            --rose-gradient: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
-            --lavender-gradient: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
-            --mint-gradient: linear-gradient(135deg, #d299c2 0%, #fef9d7 100%);
-            --peach-gradient: linear-gradient(135deg, #fad0c4 0%, #ffd1ff 100%);
-            
-            --text-dark: #2d3748;
-            --text-light: #718096;
-            --border-color: #e2e8f0;
-            --shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-            --shadow-hover: 0 20px 40px rgba(0, 0, 0, 0.15);
-        }
-
         body {
             font-family: 'Poppins', sans-serif;
-            background: var(--primary-gradient);
-            min-height: 100vh;
-            line-height: 1.6;
+            background: linear-gradient(135deg, #ffe6f0, #fff0f5);
+            color: #333;
+            margin: 0;
+            padding: 0;
         }
-
         .container {
-            max-width: 1600px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        .header {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            border-radius: 25px;
-            padding: 40px;
-            text-align: center;
-            margin-bottom: 30px;
-            box-shadow: var(--shadow);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .header h1 {
-            background: var(--secondary-gradient);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            font-size: 3rem;
-            font-weight: 700;
-            margin-bottom: 10px;
-            letter-spacing: -1px;
-        }
-
-        .header p {
-            color: var(--text-light);
-            font-size: 1.1rem;
-            font-weight: 400;
-        }
-
-        .stats-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 25px;
-            margin-bottom: 30px;
-        }
-
-        .stat-card {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
+            max-width: 900px;
+            margin: 2rem auto;
+            padding: 1rem;
+            background: #fff;
             border-radius: 20px;
-            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .header {
             text-align: center;
-            box-shadow: var(--shadow);
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            position: relative;
-            overflow: hidden;
         }
-
-        .stat-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: var(--rose-gradient);
-            border-radius: 20px 20px 0 0;
-        }
-
-        .stat-card:hover {
-            transform: translateY(-10px) scale(1.02);
-            box-shadow: var(--shadow-hover);
-        }
-
-        .stat-icon {
-            width: 60px;
-            height: 60px;
-            border-radius: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 15px;
-            font-size: 1.5rem;
-            color: white;
-        }
-
-        .stat-value {
+        .header h1 {
+            color: #d63384;
             font-size: 2.5rem;
-            font-weight: 700;
-            background: var(--secondary-gradient);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 5px;
         }
-
-        .stat-label {
-            color: var(--text-light);
-            font-size: 0.9rem;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+        .header p {
+            color: #6c757d;
         }
-
-        .form-section {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            border-radius: 25px;
-            padding: 40px;
-            margin-bottom: 30px;
-            box-shadow: var(--shadow);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+        .form-section, .inventory-section {
+            margin-top: 2rem;
         }
-
         .form-title {
-            font-size: 1.8rem;
-            font-weight: 600;
-            color: var(--text-dark);
-            margin-bottom: 30px;
-            text-align: center;
+            color: #d63384;
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
         }
-
         .form-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 25px;
-            margin-bottom: 30px;
-        }
-
-        .form-group {
-            position: relative;
-        }
-
-        .form-group label {
-            display: block;
-            font-weight: 600;
-            color: var(--text-dark);
-            margin-bottom: 8px;
-            font-size: 0.9rem;
-        }
-
-        .form-group input,
-        .form-group select {
-            width: 100%;
-            padding: 15px 20px;
-            border: 2px solid var(--border-color);
-            border-radius: 15px;
-            font-size: 14px;
-            font-family: inherit;
-            transition: all 0.3s ease;
-            background: rgba(255, 255, 255, 0.8);
-        }
-
-        .form-group input:focus,
-        .form-group select:focus {
-            outline: none;
-            border-color: #f093fb;
-            background: rgba(255, 255, 255, 1);
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(240, 147, 251, 0.2);
-        }
-
-        .btn-container {
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-
-        .btn {
-            padding: 15px 30px;
-            border: none;
-            border-radius: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            font-size: 0.9rem;
-            font-family: inherit;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-            transition: left 0.5s;
-        }
-
-        .btn:hover::before {
-            left: 100%;
-        }
-
-        .btn-primary {
-            background: var(--secondary-gradient);
-            color: white;
-        }
-
-        .btn-secondary {
-            background: var(--lavender-gradient);
-            color: var(--text-dark);
-        }
-
-        .btn-danger {
-            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
-            color: white;
-        }
-
-        .btn-success {
-            background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%);
-            color: white;
-        }
-
-        .btn:hover {
-            transform: translateY(-3px);
-            box-shadow: var(--shadow-hover);
-        }
-
-        .search-section {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            border-radius: 25px;
-            padding: 30px;
-            margin-bottom: 30px;
-            box-shadow: var(--shadow);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .search-grid {
-            display: grid;
-            grid-template-columns: 2fr 1fr 1fr;
-            gap: 20px;
-            align-items: end;
-        }
-
-        .inventory-section {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            border-radius: 25px;
-            padding: 40px;
-            box-shadow: var(--shadow);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .inventory-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 30px;
-        }
-
-        .product-card {
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 20px;
-            overflow: hidden;
-            box-shadow: var(--shadow);
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            border: 2px solid transparent;
-            position: relative;
-        }
-
-        .product-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 6px;
-            background: var(--mint-gradient);
-            border-radius: 20px 20px 0 0;
-        }
-
-        .product-card.expired::before {
-            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
-        }
-
-        .product-card.expiring-soon::before {
-            background: linear-gradient(135deg, #ffa726 0%, #ffcc02 100%);
-        }
-
-        .product-card:hover {
-            transform: translateY(-10px) scale(1.02);
-            box-shadow: var(--shadow-hover);
-            border-color: #f093fb;
-        }
-
-        .product-image-container {
-            position: relative;
-            height: 200px;
-            overflow: hidden;
-        }
-
-        .product-image {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transition: transform 0.3s ease;
-        }
-
-        .product-card:hover .product-image {
-            transform: scale(1.1);
-        }
-
-        .image-placeholder {
-            width: 100%;
-            height: 100%;
-            background: var(--peach-gradient);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--text-light);
-            font-size: 1rem;
-            font-weight: 500;
-        }
-
-        .product-info {
-            padding: 25px;
-        }
-
-        .product-name {
-            font-size: 1.4rem;
-            font-weight: 600;
-            color: var(--text-dark);
-            margin-bottom: 15px;
-            text-align: center;
-        }
-
-        .product-details {
-            display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 20px;
+            gap: 1rem;
         }
-
-        .detail-item {
-            text-align: center;
-            padding: 10px;
-            background: rgba(240, 147, 251, 0.1);
+        .form-group label {
+            font-weight: bold;
+            color: #6c757d;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
             border-radius: 10px;
         }
-
-        .detail-label {
-            font-size: 0.75rem;
-            color: var(--text-light);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            font-weight: 500;
-            margin-bottom: 5px;
+        .btn-container {
+            margin-top: 1rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
         }
-
-        .detail-value {
-            font-weight: 600;
-            color: var(--text-dark);
-            font-size: 0.9rem;
+        .btn {
+            padding: 0.6rem 1rem;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
         }
-
-        .profit-indicator {
-            display: inline-block;
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 600;
-        }
-
-        .profit-positive {
-            background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%);
+        .btn-primary {
+            background: #d63384;
             color: white;
         }
-
-        .profit-negative {
-            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+        .btn-secondary {
+            background: #ffb3d9;
+            color: #333;
+        }
+        .btn-danger {
+            background: #ff4d4d;
             color: white;
         }
-
-        .qr-section {
-            text-align: center;
-            margin: 20px 0;
-            padding: 15px;
-            background: rgba(255, 255, 255, 0.5);
+        .product-card {
+            background: #fff0f5;
             border-radius: 15px;
+            padding: 1rem;
+            margin: 1rem 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-
-        .product-actions {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
+        .product-card img {
+            max-width: 120px;
+            margin-top: 0.5rem;
+            border-radius: 10px;
         }
-
-        .alert {
-            padding: 20px;
-            border-radius: 15px;
-            margin-bottom: 20px;
-            font-weight: 500;
-            text-align: center;
-            border: 1px solid;
-        }
-
-        .alert-danger {
-            background: rgba(255, 107, 107, 0.1);
-            color: #e74c3c;
-            border-color: rgba(255, 107, 107, 0.3);
-        }
-
-        .alert-warning {
-            background: rgba(255, 167, 38, 0.1);
-            color: #f39c12;
-            border-color: rgba(255, 167, 38, 0.3);
-        }
-
-        .notification-section {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            border-radius: 25px;
-            padding: 30px;
-            margin-bottom: 30px;
-            box-shadow: var(--shadow);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .best-sellers {
-            margin-top: 30px;
-        }
-
-        .best-seller-item {
-            display: flex;
-            align-items: center;
-            padding: 15px;
-            background: rgba(240, 147, 251, 0.1);
-            border-radius: 15px;
-            margin-bottom: 10px;
-        }
-
-        .rank-badge {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: var(--secondary-gradient);
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 600;
-            margin-right: 15px;
-        }
-
-        @media (max-width: 768px) {
-            .container {
-                padding: 15px;
-            }
-            
-            .header h1 {
-                font-size: 2rem;
-            }
-            
-            .form-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .search-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .inventory-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .btn-container {
-                flex-direction: column;
-            }
-            
-            .product-details {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255,255,255,.3);
-            border-radius: 50%;
-            border-top-color: #fff;
-            animation: spin 1s ease-in-out infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
         .fade-in {
-            animation: fadeIn 0.5s ease-in;
+            animation: fadeIn 1s ease forwards;
         }
-
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
+            from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
+        }
+        .search-bar {
+            margin-top: 1rem;
+        }
+        .search-bar input {
+            width: 100%;
+            padding: 0.5rem;
+            border-radius: 10px;
+            border: 1px solid #ccc;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header fade-in">
-            <h1><i class="fas fa-gem"></i> FFA</h1>
-            <p>UK to Senegal • Professional Inventory Management</p>
-        </div>
-
-        <div class="stats-container">
-            <div class="stat-card fade-in">
-                <div class="stat-icon" style="background: var(--rose-gradient);">
-                    <i class="fas fa-boxes"></i>
-                </div>
-                <div class="stat-value" id="totalProducts">0</div>
-                <div class="stat-label">Total Products</div>
-            </div>
-            <div class="stat-card fade-in">
-                <div class="stat-icon" style="background: var(--lavender-gradient);">
-                    <i class="fas fa-pound-sign"></i>
-                </div>
-                <div class="stat-value" id="totalValue">£0</div>
-                <div class="stat-label">Total Value</div>
-            </div>
-            <div class="stat-card fade-in">
-                <div class="stat-icon" style="background: var(--mint-gradient);">
-                    <i class="fas fa-chart-line"></i>
-                </div>
-                <div class="stat-value" id="totalProfit">£0</div>
-                <div class="stat-label">Total Profit</div>
-            </div>
-            <div class="stat-card fade-in">
-                <div class="stat-icon" style="background: var(--peach-gradient);">
-                    <i class="fas fa-exclamation-triangle"></i>
-                </div>
-                <div class="stat-value" id="expiredCount">0</div>
-                <div class="stat-label">Expired Items</div>
-            </div>
-        </div>
-
-        <div class="notification-section fade-in">
-            <h3><i class="fas fa-mobile-alt"></i> Phone Notifications</h3>
-            <p>Enable notifications to get alerts when products are about to expire</p>
-            <div style="margin-top: 15px;">
-                <button class="btn btn-primary" onclick="enableNotifications()">
-                    <i class="fas fa-bell"></i> Enable Notifications
-                </button>
-                <span id="notificationStatus" style="margin-left: 15px; color: var(--text-light);"></span>
-            </div>
+            <h1><i class="fas fa-gem"></i> Boss Babe Inventory</h1>
+            <p>Track your products like a CEO ✨ UK to Senegal</p>
         </div>
 
         <div class="form-section fade-in">
-            <h2 class="form-title"><i class="fas fa-plus-circle"></i> Add New Product</h2>
+            <h2 class="form-title"><i class="fas fa-plus-circle"></i> Add Product</h2>
             <div class="form-grid">
                 <div class="form-group">
-                    <label for="productName"><i class="fas fa-tag"></i> Product Name *</label>
-                    <input type="text" id="productName" placeholder="Enter product name" required>
+                    <label><i class="fas fa-tag"></i> Product Name *</label>
+                    <input type="text" id="productName" placeholder="E.g., Pink Sunglasses">
                 </div>
                 <div class="form-group">
-                    <label for="quantityStock"><i class="fas fa-cubes"></i> Quantity in Stock *</label>
-                    <input type="number" id="quantityStock" min="1" placeholder="0" required>
+                    <label><i class="fas fa-cubes"></i> Quantity in Stock *</label>
+                    <input type="number" id="quantityStock" min="1" placeholder="0">
                 </div>
                 <div class="form-group">
-                    <label for="originalCost"><i class="fas fa-pound-sign"></i> Original Cost Price *</label>
-                    <input type="number" id="originalCost" step="0.01" placeholder="0.00" required>
+                    <label><i class="fas fa-pound-sign"></i> Original Cost Price *</label>
+                    <input type="number" id="originalCost" step="0.01" placeholder="0.00">
                 </div>
                 <div class="form-group">
-                    <label for="transportCost"><i class="fas fa-truck"></i> Transport Cost</label>
+                    <label><i class="fas fa-truck"></i> Transport Cost</label>
                     <input type="number" id="transportCost" step="0.01" placeholder="0.00">
                 </div>
                 <div class="form-group">
-                    <label for="shippingCost"><i class="fas fa-ship"></i> Shipping Cost (UK-Senegal)</label>
+                    <label><i class="fas fa-ship"></i> Shipping Cost (UK ➡ Senegal)</label>
                     <input type="number" id="shippingCost" step="0.01" placeholder="0.00">
                 </div>
                 <div class="form-group">
-                    <label for="unitPrice"><i class="fas fa-money-bill"></i> Unit Price *</label>
-                    <input type="number" id="unitPrice" step="0.01" placeholder="0.00" required>
+                    <label><i class="fas fa-money-bill"></i> Unit Price *</label>
+                    <input type="number" id="unitPrice" step="0.01" placeholder="0.00">
                 </div>
                 <div class="form-group">
-                    <label for="expirationDate"><i class="fas fa-calendar-alt"></i> Expiration Date</label>
+                    <label><i class="fas fa-calendar-alt"></i> Expiration Date</label>
                     <input type="date" id="expirationDate">
                 </div>
                 <div class="form-group">
-                    <label for="productImage"><i class="fas fa-image"></i> Product Image</label>
+                    <label><i class="fas fa-image"></i> Product Image</label>
                     <input type="file" id="productImage" accept="image/*">
                 </div>
             </div>
-            
             <div class="btn-container">
-                <button class="btn btn-primary" onclick="addProduct()">
-                    <i class="fas fa-plus"></i> Add Product
-                </button>
-                <button class="btn btn-secondary" onclick="exportData()">
-                    <i class="fas fa-download"></i> Export Data
-                </button>
-                <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData()">
-                <button class="btn btn-secondary" onclick="document.getElementById('importFile').click()">
-                    <i class="fas fa-upload"></i> Import Data
-                </button>
-                <button class="btn btn-danger" onclick="clearAll()">
-                    <i class="fas fa-trash"></i> Clear All
-                </button>
+                <button class="btn btn-primary" onclick="addProduct()"><i class="fas fa-plus"></i> Add</button>
+                <button class="btn btn-secondary" onclick="exportData()"><i class="fas fa-download"></i> Export</button>
+                <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData()">
+                <button class="btn btn-secondary" onclick="document.getElementById('importFile').click()"><i class="fas fa-upload"></i> Import</button>
+                <button class="btn btn-danger" onclick="clearAll()"><i class="fas fa-trash"></i> Clear All</button>
             </div>
         </div>
 
-        <div class="search-section fade-in">
-            <div class="search-grid">
-                <div class="form-group">
-                    <label for="searchInput"><i class="fas fa-search"></i> Search Products</label>
-                    <input type="text" id="searchInput" placeholder="Search by product name..." onkeyup="filterProducts()">
-                </div>
-                <div class="form-group">
-                    <label for="filterStatus"><i class="fas fa-filter"></i> Filter by Status</label>
-                    <select id="filterStatus" onchange="filterProducts()">
-                        <option value="all">All Items</option>
-                        <option value="expired">Expired</option>
-                        <option value="expiring-soon">Expiring Soon</option>
-                        <option value="fresh">Fresh</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="sortBy"><i class="fas fa-sort"></i> Sort By</label>
-                    <select id="sortBy" onchange="sortProducts()">
-                        <option value="name">Product Name</option>
-                        <option value="expiration">Expiration Date</option>
-                        <option value="profit">Profit</option>
-                        <option value="total">Total Value</option>
-                        <option value="sales">Most Sold</option>
-                    </select>
-                </div>
-            </div>
+        <div class="search-bar fade-in">
+            <input type="text" id="searchInput" placeholder="Search products..." oninput="displayInventory()">
         </div>
 
         <div class="inventory-section fade-in">
-            <div id="alerts"></div>
-            
-            <div class="best-sellers" id="bestSellers" style="display: none;">
-                <h3><i class="fas fa-trophy"></i> Best Selling Products</h3>
-                <div id="bestSellersList"></div>
-            </div>
-
-            <div class="inventory-grid" id="inventoryGrid">
-                <!-- Products will be displayed here -->
-            </div>
+            <div id="inventoryGrid"></div>
         </div>
     </div>
 
     <script>
         let inventory = JSON.parse(localStorage.getItem('inventory')) || [];
         let productIdCounter = parseInt(localStorage.getItem('productIdCounter')) || 1;
-        let salesData = JSON.parse(localStorage.getItem('salesData')) || {};
-
-        // Notification support
-        function enableNotifications() {
-            if ('Notification' in window) {
-                Notification.requestPermission().then(function (permission) {
-                    const status = document.getElementById('notificationStatus');
-                    if (permission === 'granted') {
-                        status.textContent = '✅ Notifications enabled!';
-                        status.style.color = '#27ae60';
-                        localStorage.setItem('notificationsEnabled', 'true');
-                        scheduleExpirationChecks();
-                    } else {
-                        status.textContent = '❌ Notifications denied';
-                        status.style.color = '#e74c3c';
-                    }
-                });
-            } else {
-                document.getElementById('notificationStatus').textContent = '❌ Browser not supported';
-            }
-        }
-
-        function sendNotification(title, body, icon = '🔔') {
-            if (localStorage.getItem('notificationsEnabled') === 'true' && Notification.permission === 'granted') {
-                new Notification(title, {
-                    body: body,
-                    icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">' + icon + '</text></svg>',
-                    requireInteraction: true
-                });
-            }
-        }
-
-        function scheduleExpirationChecks() {
-            // Check every hour for expiring products
-            setInterval(() => {
-                checkAndNotifyExpirations();
-            }, 3600000); // 1 hour
-
-            // Initial check
-            checkAndNotifyExpirations();
-        }
-
-        function checkAndNotifyExpirations() {
-            const today = new Date();
-            const threeDaysFromNow = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000);
-
-            inventory.forEach(product => {
-                if (product.expirationDate) {
-                    const expDate = new Date(product.expirationDate);
-                    const daysDiff = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
-
-                    if (daysDiff === 3) {
-                        sendNotification(
-                            '⚠️ Product Expiring Soon!',
-                            `${product.name} expires in 3 days (${product.expirationDate})`,
-                            '⚠️'
-                        );
-                    } else if (daysDiff === 1) {
-                        sendNotification(
-                            '🚨 Product Expires Tomorrow!',
-                            `${product.name} expires tomorrow (${product.expirationDate})`,
-                            '🚨'
-                        );
-                    } else if (daysDiff <= 0) {
-                        sendNotification(
-                            '💀 Product Expired!',
-                            `${product.name} has expired (${product.expirationDate})`,
-                            '💀'
-                        );
-                    }
-                }
-            });
-        }
-
-        function generateQRCode(text, elementId) {
-            const element = document.getElementById(elementId);
-            if (element) {
-                element.innerHTML = '';
-                const qr = new QRCode(element, {
-                    text: text,
-                    width: 100,
-                    height: 100,
-                    colorDark: "#000000",
-                    colorLight: "#ffffff"
-                });
-            }
-        }
 
         function addProduct() {
             const name = document.getElementById('productName').value.trim();
@@ -785,31 +186,7 @@
             const imageFile = document.getElementById('productImage').files[0];
 
             if (!name || !quantityStock || !originalCost || !unitPrice) {
-                alert('Please fill in all required fields');
-                return;
-            }
-
-            // Check for duplicates
-            const existingProduct = inventory.find(p => p.name.toLowerCase() === name.toLowerCase());
-            if (existingProduct) {
-                if (confirm('Product already exists. Do you want to update the quantity?')) {
-                    existingProduct.quantityStock += quantityStock;
-                    existingProduct.originalCost = originalCost;
-                    existingProduct.transportCost = transportCost;
-                    existingProduct.shippingCost = shippingCost;
-                    existingProduct.unitPrice = unitPrice;
-                    if (expirationDate) existingProduct.expirationDate = expirationDate;
-                    if (imageFile) {
-                        const reader = new FileReader();
-                        reader.onload = function(e) {
-                            existingProduct.image = e.target.result;
-                            saveAndRefresh();
-                        };
-                        reader.readAsDataURL(imageFile);
-                    } else {
-                        saveAndRefresh();
-                    }
-                }
+                alert('Please complete all required fields.');
                 return;
             }
 
@@ -819,6 +196,88 @@
 
             const product = {
                 id: productIdCounter++,
-                name: name,
-                quantityStock: quantityStock,
-                originalCost: originalCost,
+                name,
+                quantityStock,
+                originalCost,
+                transportCost,
+                shippingCost,
+                unitPrice,
+                expirationDate,
+                totalValue,
+                totalProfit,
+                image: imageFile ? URL.createObjectURL(imageFile) : null
+            };
+
+            inventory.push(product);
+            saveAndRefresh();
+        }
+
+        function saveAndRefresh() {
+            localStorage.setItem('inventory', JSON.stringify(inventory));
+            localStorage.setItem('productIdCounter', productIdCounter);
+            displayInventory();
+        }
+
+        function displayInventory() {
+            const inventoryGrid = document.getElementById('inventoryGrid');
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            inventoryGrid.innerHTML = '';
+
+            inventory.filter(p => p.name.toLowerCase().includes(search)).forEach(product => {
+                const card = document.createElement('div');
+                card.className = 'product-card';
+
+                card.innerHTML = `
+                    <h3>${product.name}</h3>
+                    <p>Quantity: ${product.quantityStock}</p>
+                    <p>Original Cost: £${product.originalCost.toFixed(2)}</p>
+                    <p>Unit Price: £${product.unitPrice.toFixed(2)}</p>
+                    <p>Profit per Unit: £${(product.unitPrice - (product.originalCost + (product.transportCost/product.quantityStock) + (product.shippingCost/product.quantityStock))).toFixed(2)}</p>
+                    <p>Total Profit: £${product.totalProfit.toFixed(2)}</p>
+                    <p>Expiration: ${product.expirationDate || 'N/A'}</p>
+                    ${product.image ? `<img src="${product.image}" alt="${product.name}">` : ''}
+                    <div id="qrcode-${product.id}"></div>
+                `;
+
+                inventoryGrid.appendChild(card);
+
+                QRCode.toCanvas(document.createElement('canvas'), product.name, { width: 80 }, (err, canvas) => {
+                    if (!err) document.getElementById(`qrcode-${product.id}`).appendChild(canvas);
+                });
+            });
+        }
+
+        function exportData() {
+            const blob = new Blob([JSON.stringify(inventory)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'BossBabeInventory.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importData() {
+            const file = document.getElementById('importFile').files[0];
+            const reader = new FileReader();
+            reader.onload = e => {
+                inventory = JSON.parse(e.target.result);
+                productIdCounter = inventory.length ? Math.max(...inventory.map(p => p.id)) + 1 : 1;
+                saveAndRefresh();
+            };
+            reader.readAsText(file);
+        }
+
+        function clearAll() {
+            if (confirm('Wipe all inventory data?')) {
+                inventory = [];
+                productIdCounter = 1;
+                localStorage.clear();
+                displayInventory();
+            }
+        }
+
+        displayInventory();
+    </script>
+</body>
+</html>
