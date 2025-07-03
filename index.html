@@ -581,12 +581,8 @@
         </div>
         <div class="form-grid">
             <div class="form-group">
-                <label for="scanInput">Enter Scanned Product ID</label>
-                <input type="number" id="scanInput" placeholder="Enter ID from QR code" aria-required="true">
-            </div>
-            <div class="form-group">
-                <label for="scanQuantity">Deduct Quantity</label>
-                <input type="number" id="scanQuantity" min="0" placeholder="Enter quantity to deduct">
+                <label for="scanInput">Enter Scanned Data</label>
+                <input type="text" id="scanInput" placeholder="Scan QR code or enter data (e.g., Name: Product1, Price: 5000 CFA, Expires: 2025-08-03)" aria-required="true">
             </div>
         </div>
         <button class="btn btn-primary" onclick="processScan()" aria-label="Process scanned product">
@@ -658,6 +654,25 @@
     </div>
 </div>
 
+<div class="modal" id="scanConfirmationModal">
+    <div class="modal-content">
+        <h2>Confirm Scanned Product</h2>
+        <div id="scanConfirmationDetails"></div>
+        <div class="form-group">
+            <label for="confirmDeductQuantity">Deduct Quantity</label>
+            <input type="number" id="confirmDeductQuantity" min="0" placeholder="Enter quantity to deduct">
+        </div>
+        <button class="btn btn-primary" onclick="confirmScan()" aria-label="Confirm and update">
+            <i class="fas fa-check"></i>
+            Confirm and Update
+        </button>
+        <button class="btn btn-secondary" onclick="closeScanConfirmation()" aria-label="Cancel scan">
+            <i class="fas fa-times"></i>
+            Cancel
+        </button>
+    </div>
+</div>
+
 <script>
 // Global variables
 let inventory = [];
@@ -665,6 +680,7 @@ let productIdCounter = 1;
 let editingId = null;
 const CONVERSION_RATE_GBP_TO_CFA = 750; // 1 GBP = 750 CFA
 let currentProductId = null;
+let scannedData = null;
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', function() {
@@ -704,10 +720,11 @@ function saveData() {
 }
 
 // QR code generation
-function generateQRCode(productId) {
+function generateQRCode(product) {
+    const qrData = `Name: ${product.name}, Price: ${product.unitPrice} CFA, Expires: ${product.expirationDate || 'N/A'}`;
     const qrCodeDiv = document.createElement('div');
     const qr = new QRCode(qrCodeDiv, {
-        text: productId.toString(), // Encode only the product ID
+        text: qrData,
         width: 150,
         height: 150,
         colorDark: "#000000",
@@ -768,8 +785,8 @@ function saveProduct() {
         qrCode: null
     };
 
-    // Generate QR code
-    product.qrCode = generateQRCode(product.id);
+    // Generate QR code with product details
+    product.qrCode = generateQRCode(product);
 
     // Handle image with compression
     if (imageFile) {
@@ -794,7 +811,7 @@ function saveProduct() {
         if (editingId) {
             const existingProduct = inventory.find(p => p.id === editingId);
             product.image = existingProduct?.image || null;
-            product.qrCode = existingProduct?.qrCode || generateQRCode(product.id);
+            product.qrCode = existingProduct?.qrCode || generateQRCode(product);
         }
         saveProductToInventory(product);
     }
@@ -888,7 +905,7 @@ function showQRCode(id) {
     details.innerHTML = `
         <div class="qr-code-container">
             <img src="${product.qrCode}" alt="QR Code for ${product.name}">
-            <p>Scan this QR code with your phone to get the product ID (e.g., ${product.id}). Enter it in the 'Scan Product' section.</p>
+            <p>Scan this QR code with your phone to get product details (Name, Price, Expiration). Enter the data in the 'Scan Product' section.</p>
             <a href="${product.qrCode}" download="${product.name}_qrcode.png" class="btn btn-secondary btn-small">
                 <i class="fas fa-download"></i> Download QR Code
             </a>
@@ -985,17 +1002,63 @@ function updateQuantity() {
 }
 
 function processScan() {
-    const scannedId = parseInt(document.getElementById('scanInput').value);
-    const quantityToDeduct = parseInt(document.getElementById('scanQuantity').value);
-
-    if (isNaN(scannedId) || isNaN(quantityToDeduct) || quantityToDeduct < 0) {
-        showNotification('Please enter a valid product ID and non-negative quantity', 'error');
+    const scannedText = document.getElementById('scanInput').value.trim();
+    if (!scannedText) {
+        showNotification('Please scan a QR code or enter the data', 'error');
         return;
     }
 
-    const product = inventory.find(p => p.id === scannedId);
+    // Parse scanned data
+    const nameMatch = scannedText.match(/Name:\s*([^,]+)/i);
+    const priceMatch = scannedText.match(/Price:\s*([\d.]+)\s*CFA/i);
+    const expiresMatch = scannedText.match(/Expires:\s*([^,]+)/i);
+
+    const name = nameMatch ? nameMatch[1].trim() : '';
+    const price = priceMatch ? parseFloat(priceMatch[1]) : null;
+    const expires = expiresMatch ? expiresMatch[1].trim() : 'N/A';
+
+    if (!name || price === null) {
+        showNotification('Invalid scanned data. Ensure it includes Name and Price.', 'error');
+        return;
+    }
+
+    scannedData = { name, price, expires };
+    showScanConfirmation();
+}
+
+function showScanConfirmation() {
+    const modal = document.getElementById('scanConfirmationModal');
+    const details = document.getElementById('scanConfirmationDetails');
+    details.innerHTML = `
+        <div class="product-details">
+            <div class="detail-item">
+                <span class="detail-label">Name:</span>
+                <span class="detail-value">${scannedData.name}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Price:</span>
+                <span class="detail-value">${scannedData.price} CFA</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Expires:</span>
+                <span class="detail-value">${scannedData.expires}</span>
+            </div>
+        </div>
+    `;
+    document.getElementById('confirmDeductQuantity').value = '';
+    modal.style.display = 'flex';
+}
+
+function confirmScan() {
+    const quantityToDeduct = parseInt(document.getElementById('confirmDeductQuantity').value);
+    if (isNaN(quantityToDeduct) || quantityToDeduct < 0) {
+        showNotification('Please enter a valid non-negative quantity', 'error');
+        return;
+    }
+
+    const product = inventory.find(p => p.name === scannedData.name && p.unitPrice === scannedData.price && p.expirationDate === (scannedData.expires !== 'N/A' ? scannedData.expires : null));
     if (!product) {
-        showNotification('Product ID not found', 'error');
+        showNotification('Product not found in inventory', 'error');
         return;
     }
 
@@ -1014,9 +1077,15 @@ function processScan() {
     updateStats();
     checkAlerts();
     showNotification(`Deducted ${quantityToDeduct} units from ${product.name}`, 'success');
+    closeScanConfirmation();
 
     document.getElementById('scanInput').value = '';
-    document.getElementById('scanQuantity').value = '';
+}
+
+function closeScanConfirmation() {
+    document.getElementById('scanConfirmationModal').style.display = 'none';
+    document.getElementById('scanConfirmationDetails').innerHTML = '';
+    scannedData = null;
 }
 
 function closeModal() {
@@ -1214,7 +1283,7 @@ function exportToExcel() {
             'Expiration Date': product.expirationDate || 'N/A',
             'Date Added': formatDate(product.dateAdded),
             'Last Updated': formatDate(product.dateUpdated),
-            'QR Code': `Scan QR code for product ID ${product.id} to get the ID`
+            'QR Code': `Scan QR code for Name: ${product.name}, Price: ${product.unitPrice} CFA, Expires: ${product.expirationDate || 'N/A'}`
         }));
 
         const ws = XLSX.utils.json_to_sheet(exportData);
@@ -1300,7 +1369,7 @@ function importData() {
             if (shouldReplace) {
                 inventory = validInventory.map(product => ({
                     ...product,
-                    qrCode: product.qrCode || generateQRCode(product.id)
+                    qrCode: product.qrCode || generateQRCode(product)
                 }));
             } else {
                 const maxId = Math.max(0, ...inventory.map(p => p.id), ...validInventory.map(p => p.id));
@@ -1308,7 +1377,7 @@ function importData() {
                 validInventory.forEach(product => {
                     product.id = productIdCounter++;
                     product.dateUpdated = new Date().toISOString();
-                    product.qrCode = product.qrCode || generateQRCode(product.id);
+                    product.qrCode = product.qrCode || generateQRCode(product);
                 });
                 inventory = [...inventory, ...validInventory];
             }
@@ -1356,6 +1425,10 @@ document.addEventListener('keydown', function(e) {
     
     if (e.key === 'Escape' && document.getElementById('productModal').style.display === 'flex') {
         closeModal();
+    }
+    
+    if (e.key === 'Escape' && document.getElementById('scanConfirmationModal').style.display === 'flex') {
+        closeScanConfirmation();
     }
 });
 
