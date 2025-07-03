@@ -6,9 +6,6 @@
     <title>✨ Boss Babe Inventory ✨</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <!-- Primary QR library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <!-- Fallback QR library -->
     <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -444,7 +441,7 @@
         }
 
         .qr-code-container img {
-            max-width: 150px;
+            max-width: 200px;
             border: 2px solid #e1e5f0;
             border-radius: 10px;
         }
@@ -566,7 +563,7 @@
         </div>
 
         <div>
-            <button class="btn btn-primary" onclick="saveProduct()" aria-label="Save or update product">
+            <button class="btn btn-primary" onclick="handleSaveProduct()" aria-label="Save or update product">
                 <i class="fas fa-save"></i>
                 <span id="saveButtonText">Save Product</span>
             </button>
@@ -597,7 +594,7 @@
             Process Scan
         </button>
         <div class="scan-section">
-            <p><strong>Note:</strong> If scanning fails, find the product ID in the inventory list (e.g., from 'Edit' button) and enter it manually.</p>
+            <p><strong>Note:</strong> If scanning fails, use the product ID shown in the inventory list (e.g., from 'Edit' button like editProduct(1)).</p>
         </div>
     </div>
 
@@ -671,10 +668,10 @@ let productIdCounter = 1;
 let editingId = null;
 const CONVERSION_RATE_GBP_TO_CFA = 750; // 1 GBP = 750 CFA
 let currentProductId = null;
-let qrLibraryUsed = 'qrcodejs'; // Track which QR library is used
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, checking functions:', { saveProduct: typeof saveProduct, generateQRCode: typeof generateQRCode });
     loadData();
     displayInventory();
     updateStats();
@@ -710,43 +707,40 @@ function saveData() {
     }
 }
 
-// QR code generation with fallback
-function generateQRCode(productId) {
+// QR code generation with retry
+async function generateQRCode(productId) {
     const qrCodeDiv = document.createElement('div');
-    try {
-        // Try primary library (qrcodejs)
-        if (typeof QRCode === 'undefined') {
-            throw new Error('qrcodejs not loaded');
+    for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+            await new Promise((resolve, reject) => {
+                QRCode.toCanvas(qrCodeDiv, productId.toString(), {
+                    width: 200,
+                    height: 200,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.Q // Higher error correction
+                }, function (error) {
+                    if (error) reject(error);
+                    else resolve();
+                });
+            });
+            console.log(`QR code generated successfully for ID ${productId} on attempt ${attempt}`);
+            const canvas = qrCodeDiv.querySelector('canvas');
+            return canvas.toDataURL('image/png');
+        } catch (error) {
+            console.error(`QR code generation failed on attempt ${attempt}:`, error);
+            if (attempt === 2) {
+                showNotification('QR code generation failed. Please use the product ID manually.', 'error');
+                return null;
+            }
+            await new Promise(resolve => setTimeout(resolve, 500)); // Wait before retry
         }
-        new QRCode(qrCodeDiv, {
-            text: productId.toString(),
-            width: 150,
-            height: 150,
-            colorDark: "#000000",
-            colorLight: "#ffffff",
-            correctLevel: QRCode.CorrectLevel.H
-        });
-        console.log('QR code generated with qrcodejs for ID:', productId);
-        qrLibraryUsed = 'qrcodejs';
-    } catch (e) {
-        console.error('qrcodejs failed:', e);
-        // Fallback to alternative library
-        if (typeof QRCodeLib === 'undefined') {
-            console.error('Fallback QR library not loaded');
-            return null;
-        }
-        QRCodeLib.toCanvas(qrCodeDiv, productId.toString(), { width: 150, height: 150 }, function (error) {
-            if (error) console.error('Fallback QR generation failed:', error);
-        });
-        console.log('QR code generated with fallback for ID:', productId);
-        qrLibraryUsed = 'qrcodelib';
     }
-    const canvas = qrCodeDiv.querySelector('canvas');
-    return canvas ? canvas.toDataURL('image/png') : null;
 }
 
 // Product management functions
-function saveProduct() {
+async function saveProduct() {
+    console.log('saveProduct called');
     const name = document.getElementById('productName').value.trim();
     const category = document.getElementById('productCategory').value;
     const quantityStock = parseInt(document.getElementById('quantityStock').value);
@@ -797,12 +791,12 @@ function saveProduct() {
     };
 
     // Generate QR code
-    const qrCodeData = generateQRCode(product.id);
+    const qrCodeData = await generateQRCode(product.id);
     if (!qrCodeData) {
-        showNotification('Failed to generate QR code. Please try again or use the product ID manually.', 'error');
-        return;
+        product.qrCode = null; // Allow saving without QR if generation fails
+    } else {
+        product.qrCode = qrCodeData;
     }
-    product.qrCode = qrCodeData;
 
     // Handle image with compression
     if (imageFile) {
@@ -827,7 +821,7 @@ function saveProduct() {
         if (editingId) {
             const existingProduct = inventory.find(p => p.id === editingId);
             product.image = existingProduct?.image || null;
-            product.qrCode = existingProduct?.qrCode || generateQRCode(product.id);
+            product.qrCode = existingProduct?.qrCode || (await generateQRCode(product.id)) || null;
         }
         saveProductToInventory(product);
     }
@@ -842,7 +836,7 @@ function saveProductToInventory(product) {
         }
     } else {
         inventory.push(product);
-        showNotification('Product added successfully!', 'success');
+        showNotification('Product added successfully! (QR code may not work; use ID manually if needed.)', 'success');
     }
 
     saveData();
@@ -851,6 +845,13 @@ function saveProductToInventory(product) {
     updateStats();
     checkAlerts();
     clearDraft();
+}
+
+function handleSaveProduct() {
+    saveProduct().catch(error => {
+        console.error('Error in saveProduct:', error);
+        showNotification('An error occurred while saving. Check console for details.', 'error');
+    });
 }
 
 function editProduct(id) {
@@ -920,11 +921,11 @@ function showQRCode(id) {
     const details = document.getElementById('productDetails');
     details.innerHTML = `
         <div class="qr-code-container">
-            <img src="${product.qrCode}" alt="QR Code for ${product.name}">
-            <p>Scan this QR code to get the product ID (e.g., ${product.id}). If scanning fails, use the ID from the inventory list.</p>
-            <a href="${product.qrCode}" download="${product.name}_qrcode.png" class="btn btn-secondary btn-small">
+            ${product.qrCode ? `<img src="${product.qrCode}" alt="QR Code for ${product.name}">` : '<p>No QR code available. Use the ID below.</p>'}
+            <p>Product ID: <strong>${product.id}</strong>. Scan the QR code or use this ID manually if scanning fails.</p>
+            ${product.qrCode ? `<a href="${product.qrCode}" download="${product.name}_qrcode.png" class="btn btn-secondary btn-small">
                 <i class="fas fa-download"></i> Download QR Code
-            </a>
+            </a>` : ''}
         </div>
     `;
     document.getElementById('deductQuantity').value = '';
@@ -1333,7 +1334,7 @@ function importData() {
             if (shouldReplace) {
                 inventory = validInventory.map(product => ({
                     ...product,
-                    qrCode: product.qrCode || generateQRCode(product.id)
+                    qrCode: product.qrCode || (await generateQRCode(product.id)) || null
                 }));
             } else {
                 const maxId = Math.max(0, ...inventory.map(p => p.id), ...validInventory.map(p => p.id));
@@ -1341,7 +1342,7 @@ function importData() {
                 validInventory.forEach(product => {
                     product.id = productIdCounter++;
                     product.dateUpdated = new Date().toISOString();
-                    product.qrCode = product.qrCode || generateQRCode(product.id);
+                    product.qrCode = product.qrCode || (await generateQRCode(product.id)) || null;
                 });
                 inventory = [...inventory, ...validInventory];
             }
@@ -1380,7 +1381,7 @@ function clearAllData() {
 document.addEventListener('keydown', function(e) {
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        saveProduct();
+        handleSaveProduct();
     }
     
     if (e.key === 'Escape' && editingId) {
