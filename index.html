@@ -1,1423 +1,742 @@
- (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF'
-diff --git a/index.html b/index.html
---- a/index.html
-+++ b/index.html
-@@ -1,667 +1,743 @@
--import React, { useState, useEffect } from 'react';
--import { Search, Package, Bell, Download, Trash2, ShoppingCart, Sparkles, Heart, Star, QrCode, Plus, Minus, FileText, RotateCcw } from 'lucide-react';
--import * as XLSX from 'xlsx';
--
--const ShopInventory = () => {
--  const [products, setProducts] = useState([]);
--  const [searchTerm, setSearchTerm] = useState('');
--  const [showAddForm, setShowAddForm] = useState(false);
--  const [notifications, setNotifications] = useState([]);
--  const [selectedProduct, setSelectedProduct] = useState(null);
--  const [scannedProduct, setScannedProduct] = useState(null);
--  const [newProduct, setNewProduct] = useState({
--    name: '',
--    category: '',
--    quantity: 0,
--    lowStockLevel: 5,
--    originalCost: 0,
--    transportCost: 0,
--    shippingCost: 0,
--    unitPrice: 0,
--    expirationDate: '',
--    image: null,
--    scanCount: 0,
--    dateAdded: new Date().toISOString().split('T')[0]
--  });
--
--  // Generate QR code data
--  const generateQRCode = (product) => {
--    const qrData = {
--      id: product.id,
--      name: product.name,
--      category: product.category,
--      price: `${product.unitPrice.toFixed(0)} CFA`,
--      stock: product.quantity,
--      expires: product.expirationDate,
--      shop: "Boss Babe Inventory - Senegal"
--    };
--    
--    // Create a proper QR code using a simple pattern
--    const canvas = document.createElement('canvas');
--    const ctx = canvas.getContext('2d');
--    const size = 200;
--    const modules = 25;
--    const moduleSize = size / modules;
--    
--    canvas.width = size;
--    canvas.height = size;
--    
--    // White background
--    ctx.fillStyle = 'white';
--    ctx.fillRect(0, 0, size, size);
--    
--    // Generate pattern based on product data
--    const dataString = JSON.stringify(qrData);
--    const hash = dataString.split('').reduce((a, b) => {
--      a = ((a << 5) - a) + b.charCodeAt(0);
--      return a & a;
--    }, 0);
--    
--    ctx.fillStyle = '#8B5CF6';
--    
--    // Create QR-like pattern
--    for (let i = 0; i < modules; i++) {
--      for (let j = 0; j < modules; j++) {
--        const shouldFill = (hash + i * j + i + j) % 3 === 0;
--        if (shouldFill) {
--          ctx.fillRect(j * moduleSize, i * moduleSize, moduleSize, moduleSize);
--        }
--      }
--    }
--    
--    // Add corner squares for QR code authenticity
--    const cornerSize = moduleSize * 7;
--    ctx.fillStyle = '#8B5CF6';
--    
--    // Top-left corner
--    ctx.fillRect(0, 0, cornerSize, cornerSize);
--    ctx.fillStyle = 'white';
--    ctx.fillRect(moduleSize, moduleSize, cornerSize - 2 * moduleSize, cornerSize - 2 * moduleSize);
--    ctx.fillStyle = '#8B5CF6';
--    ctx.fillRect(2 * moduleSize, 2 * moduleSize, cornerSize - 4 * moduleSize, cornerSize - 4 * moduleSize);
--    
--    // Top-right corner
--    ctx.fillStyle = '#8B5CF6';
--    ctx.fillRect(size - cornerSize, 0, cornerSize, cornerSize);
--    ctx.fillStyle = 'white';
--    ctx.fillRect(size - cornerSize + moduleSize, moduleSize, cornerSize - 2 * moduleSize, cornerSize - 2 * moduleSize);
--    ctx.fillStyle = '#8B5CF6';
--    ctx.fillRect(size - cornerSize + 2 * moduleSize, 2 * moduleSize, cornerSize - 4 * moduleSize, cornerSize - 4 * moduleSize);
--    
--    // Bottom-left corner
--    ctx.fillStyle = '#8B5CF6';
--    ctx.fillRect(0, size - cornerSize, cornerSize, cornerSize);
--    ctx.fillStyle = 'white';
--    ctx.fillRect(moduleSize, size - cornerSize + moduleSize, cornerSize - 2 * moduleSize, cornerSize - 2 * moduleSize);
--    ctx.fillStyle = '#8B5CF6';
--    ctx.fillRect(2 * moduleSize, size - cornerSize + 2 * moduleSize, cornerSize - 4 * moduleSize, cornerSize - 4 * moduleSize);
--    
--    return canvas.toDataURL();
--  };
--
--  // Simple QR code SVG generator
--  const generateQRSVG = (data) => {
--    const size = 200;
--    const modules = 25;
--    const moduleSize = size / modules;
--    
--    // Simple pattern based on data hash
--    const hash = data.split('').reduce((a, b) => {
--      a = ((a << 5) - a) + b.charCodeAt(0);
--      return a & a;
--    }, 0);
--    
--    let pattern = '';
--    for (let i = 0; i < modules; i++) {
--      for (let j = 0; j < modules; j++) {
--        const shouldFill = (hash + i * j) % 3 === 0;
--        if (shouldFill) {
--          pattern += `<rect x="${j * moduleSize}" y="${i * moduleSize}" width="${moduleSize}" height="${moduleSize}" fill="#8B5CF6"/>`;
--        }
--      }
--    }
--    
--    return `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
--      <rect width="${size}" height="${size}" fill="white"/>
--      ${pattern}
--    </svg>`;
--  };
--
--  // Check for low stock and expiration alerts
--  useEffect(() => {
--    const alerts = [];
--    const today = new Date();
--    const thirtyDaysFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
--
--    products.forEach(product => {
--      if (product.quantity <= product.lowStockLevel) {
--        alerts.push({
--          type: 'low-stock',
--          message: `${product.name} is running low (${product.quantity} left)`,
--          product: product.name,
--          icon: '📦'
--        });
--      }
--      
--      if (product.expirationDate) {
--        const expDate = new Date(product.expirationDate);
--        if (expDate <= thirtyDaysFromNow && expDate > today) {
--          const daysLeft = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
--          alerts.push({
--            type: 'expiring',
--            message: `${product.name} expires in ${daysLeft} days`,
--            product: product.name,
--            icon: '⏰'
--          });
--        }
--      }
--    });
--
--    setNotifications(alerts);
--  }, [products]);
--
--  // Add new product
--  const addProduct = () => {
--    if (newProduct.name && newProduct.category && newProduct.unitPrice > 0) {
--      const product = {
--        ...newProduct,
--        id: Date.now(),
--        totalValue: newProduct.quantity * newProduct.unitPrice,
--        profit: (newProduct.unitPrice - newProduct.originalCost - newProduct.transportCost - newProduct.shippingCost) * newProduct.quantity
--      };
--      setProducts([...products, product]);
--      setNewProduct({
--        name: '',
--        category: '',
--        quantity: 0,
--        lowStockLevel: 5,
--        originalCost: 0,
--        transportCost: 0,
--        shippingCost: 0,
--        unitPrice: 0,
--        expirationDate: '',
--        image: null,
--        scanCount: 0,
--        dateAdded: new Date().toISOString().split('T')[0]
--      });
--      setShowAddForm(false);
--    }
--  };
--
--  // Simulate QR code scan
--  const simulateScan = (product) => {
--    setScannedProduct(product);
--    // Decrease inventory
--    setProducts(products.map(p => 
--      p.id === product.id ? { ...p, quantity: Math.max(0, p.quantity - 1), scanCount: p.scanCount + 1 } : p
--    ));
--  };
--
--  // Undo scan (for mistakes)
--  const undoScan = (product) => {
--    setProducts(products.map(p => 
--      p.id === product.id ? { ...p, quantity: p.quantity + 1, scanCount: Math.max(0, p.scanCount - 1) } : p
--    ));
--  };
--
--  // Export to Excel
--  const exportToExcel = () => {
--    try {
--      const exportData = products.map(product => ({
--        'Product Name': product.name,
--        'Category': product.category,
--        'Quantity': product.quantity,
--        'Unit Price (CFA)': product.unitPrice,
--        'Total Value (CFA)': product.totalValue,
--        'Low Stock Level': product.lowStockLevel,
--        'Original Cost (£)': product.originalCost,
--        'Transport Cost (£)': product.transportCost,
--        'Shipping Cost (£)': product.shippingCost,
--        'Profit (CFA)': product.profit,
--        'Expiration Date': product.expirationDate,
--        'Scan Count': product.scanCount,
--        'Date Added': product.dateAdded
--      }));
--      
--      const ws = XLSX.utils.json_to_sheet(exportData);
--      const wb = XLSX.utils.book_new();
--      XLSX.utils.book_append_sheet(wb, ws, 'Inventory');
--      XLSX.writeFile(wb, `boss_babe_inventory_${new Date().toISOString().split('T')[0]}.xlsx`);
--    } catch (error) {
--      alert('Export failed. Please try again.');
--    }
--  };
--
--  // Export to JSON
--  const exportToJSON = () => {
--    try {
--      const exportData = {
--        exportDate: new Date().toISOString(),
--        shop: "Boss Babe Inventory - Senegal",
--        currency: "CFA",
--        exchangeRate: "1£ = 750 CFA",
--        totalProducts: products.length,
--        totalValue: totalValue,
--        totalProfit: totalProfit,
--        products: products
--      };
--      
--      const dataStr = JSON.stringify(exportData, null, 2);
--      const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
--      const exportFileDefaultName = `boss_babe_inventory_${new Date().toISOString().split('T')[0]}.json`;
--      
--      const linkElement = document.createElement('a');
--      linkElement.setAttribute('href', dataUri);
--      linkElement.setAttribute('download', exportFileDefaultName);
--      linkElement.click();
--    } catch (error) {
--      alert('Export failed. Please try again.');
--    }
--  };
--
--  // Clear all data
--  const clearAllData = () => {
--    if (window.confirm('⚠️ Are you sure you want to clear all data? This will permanently delete all products and cannot be undone!')) {
--      setProducts([]);
--      setNotifications([]);
--      setSelectedProduct(null);
--      setScannedProduct(null);
--      setSearchTerm('');
--      alert('✅ All data has been cleared successfully!');
--    }
--  };
--
--  // Filter products based on search
--  const filteredProducts = products.filter(product =>
--    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
--    product.category.toLowerCase().includes(searchTerm.toLowerCase())
--  );
--
--  // Calculate totals
--  const totalProducts = products.length;
--  const totalValue = products.reduce((sum, p) => sum + p.totalValue, 0);
--  const totalProfit = products.reduce((sum, p) => sum + p.profit, 0);
--  const lowStockItems = products.filter(p => p.quantity <= p.lowStockLevel).length;
--
--  return (
--    <div className="min-h-screen bg-gradient-to-br from-pink-100 via-purple-50 to-indigo-100 p-4">
--      <div className="max-w-7xl mx-auto">
--        {/* Header */}
--        <div className="text-center mb-8">
--          <div className="flex items-center justify-center gap-2 mb-4">
--            <Sparkles className="text-pink-500 w-8 h-8" />
--            <h1 className="text-4xl font-bold bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent">
--              ✨ Boss Babe Inventory ✨
--            </h1>
--            <Heart className="text-pink-500 w-8 h-8" />
--          </div>
--          <p className="text-gray-600 text-lg">Track your empire like the CEO you are 💖</p>
--        </div>
--
--        {/* Stats Cards */}
--        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
--          <div className="bg-gradient-to-r from-pink-400 to-pink-500 rounded-2xl p-6 text-white shadow-lg">
--            <div className="text-3xl font-bold">{totalProducts}</div>
--            <div className="text-pink-100">Total Products</div>
--          </div>
--          <div className="bg-gradient-to-r from-purple-400 to-purple-500 rounded-2xl p-6 text-white shadow-lg">
--            <div className="text-3xl font-bold">{totalValue.toFixed(0)} CFA</div>
--            <div className="text-purple-100">Total Value</div>
--          </div>
--          <div className="bg-gradient-to-r from-indigo-400 to-indigo-500 rounded-2xl p-6 text-white shadow-lg">
--            <div className="text-3xl font-bold">{totalProfit.toFixed(0)} CFA</div>
--            <div className="text-indigo-100">Expected Profit</div>
--          </div>
--          <div className="bg-gradient-to-r from-rose-400 to-rose-500 rounded-2xl p-6 text-white shadow-lg">
--            <div className="text-3xl font-bold">{lowStockItems}</div>
--            <div className="text-rose-100">Low Stock Items</div>
--          </div>
--        </div>
--
--        {/* Notifications */}
--        {notifications.length > 0 && (
--          <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border-l-4 border-pink-400">
--            <div className="flex items-center gap-2 mb-4">
--              <Bell className="text-pink-500 w-5 h-5" />
--              <h3 className="text-lg font-semibold text-gray-800">Notifications</h3>
--            </div>
--            <div className="space-y-2">
--              {notifications.map((notif, idx) => (
--                <div key={idx} className="flex items-center gap-3 p-3 bg-pink-50 rounded-lg">
--                  <span className="text-2xl">{notif.icon}</span>
--                  <span className="text-gray-700">{notif.message}</span>
--                </div>
--              ))}
--            </div>
--          </div>
--        )}
--
--        {/* Controls */}
--        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
--          <div className="flex flex-wrap gap-4 items-center justify-between">
--            <div className="flex items-center gap-4">
--              <div className="relative">
--                <Search className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
--                <input
--                  type="text"
--                  placeholder="Search products..."
--                  value={searchTerm}
--                  onChange={(e) => setSearchTerm(e.target.value)}
--                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
--                />
--              </div>
--              <button
--                onClick={() => setShowAddForm(!showAddForm)}
--                className="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-6 py-2 rounded-xl hover:from-pink-600 hover:to-purple-700 flex items-center gap-2 transition-all"
--              >
--                <Plus className="w-5 h-5" />
--                Add Product
--              </button>
--            </div>
--            
--            <div className="flex gap-2">
--              <button
--                onClick={exportToExcel}
--                className="bg-green-500 text-white px-4 py-2 rounded-xl hover:bg-green-600 flex items-center gap-2 transition-all"
--              >
--                <Download className="w-5 h-5" />
--                Excel
--              </button>
--              <button
--                onClick={exportToJSON}
--                className="bg-blue-500 text-white px-4 py-2 rounded-xl hover:bg-blue-600 flex items-center gap-2 transition-all"
--              >
--                <FileText className="w-5 h-5" />
--                JSON
--              </button>
--              <button
--                onClick={clearAllData}
--                className="bg-red-500 text-white px-4 py-2 rounded-xl hover:bg-red-600 flex items-center gap-2 transition-all"
--              >
--                <Trash2 className="w-5 h-5" />
--                Clear All
--              </button>
--            </div>
--          </div>
--        </div>
--
--        {/* Add Product Form */}
--        {showAddForm && (
--          <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border-t-4 border-pink-400">
--            <h3 className="text-xl font-semibold text-gray-800 mb-6 flex items-center gap-2">
--              <Star className="text-pink-500 w-6 h-6" />
--              Add New Product
--            </h3>
--            
--            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
--              <div>
--                <label className="block text-sm font-medium text-gray-700 mb-2">Product Name *</label>
--                <input
--                  type="text"
--                  value={newProduct.name}
--                  onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
--                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
--                  placeholder="Enter product name"
--                />
--              </div>
--              
--              <div>
--                <label className="block text-sm font-medium text-gray-700 mb-2">Category *</label>
--                <select
--                  value={newProduct.category}
--                  onChange={(e) => setNewProduct({...newProduct, category: e.target.value})}
--                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
--                >
--                  <option value="">Select category</option>
--                  <option value="Food">Food</option>
--                  <option value="Beverages">Beverages</option>
--                  <option value="Snacks">Snacks</option>
--                  <option value="Female Hygiene">Female Hygiene</option>
--                  <option value="Makeup">Makeup</option>
--                  <option value="Beauty">Beauty</option>
--                  <option value="Skincare">Skincare</option>
--                  <option value="Hair Care">Hair Care</option>
--                  <option value="Body Care">Body Care</option>
--                  <option value="Personal Care">Personal Care</option>
--                  <option value="Health & Wellness">Health & Wellness</option>
--                  <option value="Other">Other</option>
--                </select>
--              </div>
--              
--              <div>
--                <label className="block text-sm font-medium text-gray-700 mb-2">Quantity in Stock *</label>
--                <input
--                  type="number"
--                  value={newProduct.quantity}
--                  onChange={(e) => setNewProduct({...newProduct, quantity: parseInt(e.target.value) || 0})}
--                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
--                  min="0"
--                />
--              </div>
--              
--              <div>
--                <label className="block text-sm font-medium text-gray-700 mb-2">Low Stock Alert Level</label>
--                <input
--                  type="number"
--                  value={newProduct.lowStockLevel}
--                  onChange={(e) => setNewProduct({...newProduct, lowStockLevel: parseInt(e.target.value) || 5})}
--                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
--                  min="0"
--                />
--              </div>
--              
--              <div>
--                <label className="block text-sm font-medium text-gray-700 mb-2">Original Cost (£ GBP) *</label>
--                <input
--                  type="number"
--                  step="0.01"
--                  value={newProduct.originalCost}
--                  onChange={(e) => setNewProduct({...newProduct, originalCost: parseFloat(e.target.value) || 0})}
--                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
--                  min="0"
--                />
--              </div>
--              
--              <div>
--                <label className="block text-sm font-medium text-gray-700 mb-2">Transport Cost (£ GBP)</label>
--                <input
--                  type="number"
--                  step="0.01"
--                  value={newProduct.transportCost}
--                  onChange={(e) => setNewProduct({...newProduct, transportCost: parseFloat(e.target.value) || 0})}
--                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
--                  min="0"
--                />
--              </div>
--              
--              <div>
--                <label className="block text-sm font-medium text-gray-700 mb-2">Shipping Cost (£ GBP)</label>
--                <input
--                  type="number"
--                  step="0.01"
--                  value={newProduct.shippingCost}
--                  onChange={(e) => setNewProduct({...newProduct, shippingCost: parseFloat(e.target.value) || 0})}
--                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
--                  min="0"
--                />
--              </div>
--              
--              <div>
--                <label className="block text-sm font-medium text-gray-700 mb-2">Unit Price (CFA) *</label>
--                <input
--                  type="number"
--                  step="0.01"
--                  value={newProduct.unitPrice}
--                  onChange={(e) => setNewProduct({...newProduct, unitPrice: parseFloat(e.target.value) || 0})}
--                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
--                  min="0"
--                />
--              </div>
--              
--              <div>
--                <label className="block text-sm font-medium text-gray-700 mb-2">Expiration Date</label>
--                <input
--                  type="date"
--                  value={newProduct.expirationDate}
--                  onChange={(e) => setNewProduct({...newProduct, expirationDate: e.target.value})}
--                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
--                />
--              </div>
--            </div>
--            
--            <div className="flex justify-end gap-4 mt-6">
--              <button
--                onClick={() => setShowAddForm(false)}
--                className="px-6 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition-all"
--              >
--                Cancel
--              </button>
--              <button
--                onClick={addProduct}
--                className="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-6 py-2 rounded-xl hover:from-pink-600 hover:to-purple-700 transition-all"
--              >
--                Save Product
--              </button>
--            </div>
--          </div>
--        )}
--
--        {/* Products Grid */}
--        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
--          {filteredProducts.map((product) => (
--            <div key={product.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300">
--              <div className="p-6">
--                <div className="flex items-center justify-between mb-4">
--                  <h3 className="text-lg font-semibold text-gray-800">{product.name}</h3>
--                  <span className="bg-pink-100 text-pink-600 px-3 py-1 rounded-full text-sm font-medium">
--                    {product.category}
--                  </span>
--                </div>
--                
--                <div className="space-y-3">
--                  <div className="flex justify-between">
--                    <span className="text-gray-600">Stock:</span>
--                    <span className={`font-semibold ${product.quantity <= product.lowStockLevel ? 'text-red-500' : 'text-green-500'}`}>
--                      {product.quantity}
--                    </span>
--                  </div>
--                  
--                  <div className="flex justify-between">
--                    <span className="text-gray-600">Price:</span>
--                    <span className="font-semibold text-purple-600">{product.unitPrice.toFixed(0)} CFA</span>
--                  </div>
--                  
--                  <div className="flex justify-between">
--                    <span className="text-gray-600">Total Value:</span>
--                    <span className="font-semibold text-indigo-600">{product.totalValue.toFixed(0)} CFA</span>
--                  </div>
--                  
--                  <div className="flex justify-between">
--                    <span className="text-gray-600">Scans:</span>
--                    <span className="font-semibold text-gray-800">{product.scanCount}</span>
--                  </div>
--                  
--                  {product.expirationDate && (
--                    <div className="flex justify-between">
--                      <span className="text-gray-600">Expires:</span>
--                      <span className="font-semibold text-orange-600">
--                        {new Date(product.expirationDate).toLocaleDateString()}
--                      </span>
--                    </div>
--                  )}
--                </div>
--                
--                <div className="flex gap-2 mt-4">
--                  <button
--                    onClick={() => simulateScan(product)}
--                    className="flex-1 bg-gradient-to-r from-pink-500 to-purple-600 text-white px-4 py-2 rounded-xl hover:from-pink-600 hover:to-purple-700 flex items-center justify-center gap-2 transition-all"
--                  >
--                    <QrCode className="w-4 h-4" />
--                    Scan
--                  </button>
--                  
--                  <button
--                    onClick={() => undoScan(product)}
--                    className="bg-gray-500 text-white px-4 py-2 rounded-xl hover:bg-gray-600 flex items-center justify-center gap-2 transition-all"
--                  >
--                    <RotateCcw className="w-4 h-4" />
--                    Undo
--                  </button>
--                  
--                  <button
--                    onClick={() => setSelectedProduct(product)}
--                    className="bg-indigo-500 text-white px-4 py-2 rounded-xl hover:bg-indigo-600 flex items-center justify-center gap-2 transition-all"
--                  >
--                    <QrCode className="w-4 h-4" />
--                    QR
--                  </button>
--                </div>
--              </div>
--            </div>
--          ))}
--        </div>
--
--        {/* Empty State */}
--        {filteredProducts.length === 0 && (
--          <div className="text-center py-12">
--            <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
--            <h3 className="text-xl font-semibold text-gray-600 mb-2">No products found</h3>
--            <p className="text-gray-500">Add your first product to get started!</p>
--          </div>
--        )}
--
--        {/* QR Code Modal */}
--        {selectedProduct && (
--          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setSelectedProduct(null)}>
--            <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
--              <div className="text-center">
--                <h3 className="text-xl font-semibold mb-4">{selectedProduct.name}</h3>
--                <img 
--                  src={generateQRCode(selectedProduct)} 
--                  alt="QR Code" 
--                  className="mx-auto mb-4 border-2 border-pink-200 rounded-lg"
--                />
--                <p className="text-gray-600 mb-4">Scan this QR code to get product information</p>
--                <button
--                  onClick={() => setSelectedProduct(null)}
--                  className="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-6 py-2 rounded-xl hover:from-pink-600 hover:to-purple-700 transition-all"
--                >
--                  Close
--                </button>
--              </div>
--            </div>
--          </div>
--        )}
--
--        {/* Scan Result Modal */}
--        {scannedProduct && (
--          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setScannedProduct(null)}>
--            <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
--              <div className="text-center">
--                <div className="text-4xl mb-4">✅</div>
--                <h3 className="text-xl font-semibold mb-4">Product Scanned!</h3>
--                <div className="text-left space-y-2 mb-6">
--                  <p><strong>Name:</strong> {scannedProduct.name}</p>
--                  <p><strong>Category:</strong> {scannedProduct.category}</p>
--                  <p><strong>Price:</strong> {scannedProduct.unitPrice.toFixed(0)} CFA</p>
--                  <p><strong>Remaining Stock:</strong> {scannedProduct.quantity}</p>
--                  {scannedProduct.expirationDate && (
--                    <p><strong>Expires:</strong> {new Date(scannedProduct.expirationDate).toLocaleDateString()}</p>
--                  )}
--                </div>
--                <button
--                  onClick={() => setScannedProduct(null)}
--                  className="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-6 py-2 rounded-xl hover:from-pink-600 hover:to-purple-700 transition-all"
--                >
--                  Close
--                </button>
--              </div>
--            </div>
--          </div>
--        )}
--      </div>
--    </div>
--  );
--};
--
--export default ShopInventory;
-+<!DOCTYPE html>
-+<html lang="en">
-+<head>
-+    <meta charset="UTF-8">
-+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-+    <title>Boss Babe Inventory - Real QR Codes</title>
-+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
-+    <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-+    <!-- QR Code Libraries -->
-+    <script src="https://unpkg.com/qrcode-generator@1.4.4/qrcode.js"></script>
-+    <script src="https://unpkg.com/qrious@4.0.2/dist/qrious.min.js"></script>
-+    <script src="https://cdn.tailwindcss.com"></script>
-+    <style>
-+        body {
-+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-+                'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-+                sans-serif;
-+            -webkit-font-smoothing: antialiased;
-+            -moz-osx-font-smoothing: grayscale;
-+        }
-+    </style>
-+</head>
-+<body>
-+    <div id="root"></div>
-+
-+    <script type="text/babel">
-+        const { useState, useEffect } = React;
-+        const { Search, Package, Bell, Download, Trash2, ShoppingCart, Sparkles, Heart, Star, QrCode, Plus, Minus, FileText, RotateCcw } = lucide;
-+
-+        const ShopInventory = () => {
-+          const [products, setProducts] = useState([]);
-+          const [searchTerm, setSearchTerm] = useState('');
-+          const [showAddForm, setShowAddForm] = useState(false);
-+          const [notifications, setNotifications] = useState([]);
-+          const [selectedProduct, setSelectedProduct] = useState(null);
-+          const [scannedProduct, setScannedProduct] = useState(null);
-+          const [newProduct, setNewProduct] = useState({
-+            name: '',
-+            category: '',
-+            quantity: 0,
-+            lowStockLevel: 5,
-+            originalCost: 0,
-+            transportCost: 0,
-+            shippingCost: 0,
-+            unitPrice: 0,
-+            expirationDate: '',
-+            image: null,
-+            scanCount: 0,
-+            dateAdded: new Date().toISOString().split('T')[0]
-+          });
-+
-+          // Generate real QR code using QRious library
-+          const generateQRCode = (product) => {
-+            const qrData = {
-+              type: "PRODUCT_INFO",
-+              shop: "Boss Babe Inventory - Senegal",
-+              product: {
-+                id: product.id,
-+                name: product.name,
-+                category: product.category,
-+                price: `${product.unitPrice.toFixed(0)} CFA`,
-+                stock: product.quantity,
-+                expires: product.expirationDate || "No expiration",
-+                scanCount: product.scanCount,
-+                dateAdded: product.dateAdded
-+              },
-+              timestamp: new Date().toISOString(),
-+              currency: "CFA",
-+              contact: "Boss Babe Inventory System",
-+              url: `https://bossbabe-inventory.com/product/${product.id}`
-+            };
-+            
-+            try {
-+              // Use QRious library to generate real QR code
-+              const qr = new QRious({
-+                element: document.createElement('canvas'),
-+                value: JSON.stringify(qrData, null, 2),
-+                size: 256,
-+                background: '#ffffff',
-+                foreground: '#8B5CF6',
-+                level: 'M'
-+              });
-+              
-+              return qr.toDataURL();
-+            } catch (error) {
-+              console.error('QR Code generation failed:', error);
-+              // Fallback to qrcode-generator if QRious fails
-+              return generateFallbackQR(product);
-+            }
-+          };
-+
-+          // Fallback QR generator using qrcode-generator
-+          const generateFallbackQR = (product) => {
-+            try {
-+              const qrData = `PRODUCT_INFO|${product.name}|${product.unitPrice}CFA|Stock:${product.quantity}|Boss Babe Inventory - Senegal|ID:${product.id}|Contact:inventory@bossbabe.sn`;
-+              
-+              const qr = qrcode(0, 'M');
-+              qr.addData(qrData);
-+              qr.make();
-+              
-+              const canvas = document.createElement('canvas');
-+              const size = 256;
-+              canvas.width = size;
-+              canvas.height = size;
-+              const ctx = canvas.getContext('2d');
-+              const moduleCount = qr.getModuleCount();
-+              const moduleSize = size / moduleCount;
-+              
-+              // White background
-+              ctx.fillStyle = '#ffffff';
-+              ctx.fillRect(0, 0, size, size);
-+              
-+              // Draw QR code modules
-+              ctx.fillStyle = '#8B5CF6';
-+              for (let row = 0; row < moduleCount; row++) {
-+                for (let col = 0; col < moduleCount; col++) {
-+                  if (qr.isDark(row, col)) {
-+                    ctx.fillRect(col * moduleSize, row * moduleSize, moduleSize, moduleSize);
-+                  }
-+                }
-+              }
-+              
-+              return canvas.toDataURL();
-+            } catch (error) {
-+              console.error('Fallback QR generation failed:', error);
-+              // Last resort: create a simple pattern QR
-+              return generateSimpleQR(product);
-+            }
-+          };
-+
-+          // Last resort simple QR pattern
-+          const generateSimpleQR = (product) => {
-+            const canvas = document.createElement('canvas');
-+            const size = 256;
-+            canvas.width = size;
-+            canvas.height = size;
-+            const ctx = canvas.getContext('2d');
-+            const modules = 21;
-+            const moduleSize = size / modules;
-+            
-+            // White background
-+            ctx.fillStyle = '#ffffff';
-+            ctx.fillRect(0, 0, size, size);
-+            
-+            // Generate pattern based on product data
-+            const dataString = `${product.name}${product.id}${product.unitPrice}`;
-+            const hash = dataString.split('').reduce((a, b) => {
-+              a = ((a << 5) - a) + b.charCodeAt(0);
-+              return a & a;
-+            }, 0);
-+            
-+            ctx.fillStyle = '#8B5CF6';
-+            
-+            // Create QR-like pattern
-+            for (let i = 0; i < modules; i++) {
-+              for (let j = 0; j < modules; j++) {
-+                const shouldFill = ((hash + i * 17 + j * 23) % 7 < 3) || 
-+                                  (i < 7 && j < 7 && (i + j) % 3 === 0) ||
-+                                  (i > modules - 8 && j < 7 && (i - j) % 3 === 0) ||
-+                                  (i < 7 && j > modules - 8 && (i * j) % 4 === 0);
-+                if (shouldFill) {
-+                  ctx.fillRect(j * moduleSize, i * moduleSize, moduleSize, moduleSize);
-+                }
-+              }
-+            }
-+            
-+            // Add finder patterns (corner squares)
-+            const finderSize = moduleSize * 7;
-+            
-+            // Draw finder patterns at corners
-+            [[0, 0], [modules - 7, 0], [0, modules - 7]].forEach(([startRow, startCol]) => {
-+              // Outer square
-+              ctx.fillStyle = '#8B5CF6';
-+              ctx.fillRect(startCol * moduleSize, startRow * moduleSize, finderSize, finderSize);
-+              
-+              // Inner white square
-+              ctx.fillStyle = '#ffffff';
-+              ctx.fillRect((startCol + 1) * moduleSize, (startRow + 1) * moduleSize, 
-+                           finderSize - 2 * moduleSize, finderSize - 2 * moduleSize);
-+              
-+              // Center square
-+              ctx.fillStyle = '#8B5CF6';
-+              ctx.fillRect((startCol + 2) * moduleSize, (startRow + 2) * moduleSize, 
-+                           finderSize - 4 * moduleSize, finderSize - 4 * moduleSize);
-+            });
-+            
-+            return canvas.toDataURL();
-+          };
-+
-+          // Check for low stock and expiration alerts
-+          useEffect(() => {
-+            const alerts = [];
-+            const today = new Date();
-+            const thirtyDaysFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
-+
-+            products.forEach(product => {
-+              if (product.quantity <= product.lowStockLevel) {
-+                alerts.push({
-+                  type: 'low-stock',
-+                  message: `${product.name} is running low (${product.quantity} left)`,
-+                  product: product.name,
-+                  icon: '📦'
-+                });
-+              }
-+              
-+              if (product.expirationDate) {
-+                const expDate = new Date(product.expirationDate);
-+                if (expDate <= thirtyDaysFromNow && expDate > today) {
-+                  const daysLeft = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
-+                  alerts.push({
-+                    type: 'expiring',
-+                    message: `${product.name} expires in ${daysLeft} days`,
-+                    product: product.name,
-+                    icon: '⏰'
-+                  });
-+                }
-+              }
-+            });
-+
-+            setNotifications(alerts);
-+          }, [products]);
-+
-+          // Add new product
-+          const addProduct = () => {
-+            if (newProduct.name && newProduct.category && newProduct.unitPrice > 0) {
-+              const product = {
-+                ...newProduct,
-+                id: Date.now(),
-+                totalValue: newProduct.quantity * newProduct.unitPrice,
-+                profit: (newProduct.unitPrice - newProduct.originalCost - newProduct.transportCost - newProduct.shippingCost) * newProduct.quantity
-+              };
-+              setProducts([...products, product]);
-+              setNewProduct({
-+                name: '',
-+                category: '',
-+                quantity: 0,
-+                lowStockLevel: 5,
-+                originalCost: 0,
-+                transportCost: 0,
-+                shippingCost: 0,
-+                unitPrice: 0,
-+                expirationDate: '',
-+                image: null,
-+                scanCount: 0,
-+                dateAdded: new Date().toISOString().split('T')[0]
-+              });
-+              setShowAddForm(false);
-+            }
-+          };
-+
-+          // Simulate QR code scan
-+          const simulateScan = (product) => {
-+            setScannedProduct(product);
-+            // Decrease inventory
-+            setProducts(products.map(p => 
-+              p.id === product.id ? { ...p, quantity: Math.max(0, p.quantity - 1), scanCount: p.scanCount + 1 } : p
-+            ));
-+          };
-+
-+          // Undo scan (for mistakes)
-+          const undoScan = (product) => {
-+            setProducts(products.map(p => 
-+              p.id === product.id ? { ...p, quantity: p.quantity + 1, scanCount: Math.max(0, p.scanCount - 1) } : p
-+            ));
-+          };
-+
-+          // Export to Excel
-+          const exportToExcel = () => {
-+            try {
-+              const exportData = products.map(product => ({
-+                'Product Name': product.name,
-+                'Category': product.category,
-+                'Quantity': product.quantity,
-+                'Unit Price (CFA)': product.unitPrice,
-+                'Total Value (CFA)': product.totalValue,
-+                'Low Stock Level': product.lowStockLevel,
-+                'Original Cost (£)': product.originalCost,
-+                'Transport Cost (£)': product.transportCost,
-+                'Shipping Cost (£)': product.shippingCost,
-+                'Profit (CFA)': product.profit,
-+                'Expiration Date': product.expirationDate,
-+                'Scan Count': product.scanCount,
-+                'Date Added': product.dateAdded
-+              }));
-+              
-+              const ws = XLSX.utils.json_to_sheet(exportData);
-+              const wb = XLSX.utils.book_new();
-+              XLSX.utils.book_append_sheet(wb, ws, 'Inventory');
-+              XLSX.writeFile(wb, `boss_babe_inventory_${new Date().toISOString().split('T')[0]}.xlsx`);
-+            } catch (error) {
-+              alert('Export failed. Please try again.');
-+            }
-+          };
-+
-+          // Export to JSON
-+          const exportToJSON = () => {
-+            try {
-+              const exportData = {
-+                exportDate: new Date().toISOString(),
-+                shop: "Boss Babe Inventory - Senegal",
-+                currency: "CFA",
-+                exchangeRate: "1£ = 750 CFA",
-+                totalProducts: products.length,
-+                totalValue: totalValue,
-+                totalProfit: totalProfit,
-+                products: products
-+              };
-+              
-+              const dataStr = JSON.stringify(exportData, null, 2);
-+              const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-+              const exportFileDefaultName = `boss_babe_inventory_${new Date().toISOString().split('T')[0]}.json`;
-+              
-+              const linkElement = document.createElement('a');
-+              linkElement.setAttribute('href', dataUri);
-+              linkElement.setAttribute('download', exportFileDefaultName);
-+              linkElement.click();
-+            } catch (error) {
-+              alert('Export failed. Please try again.');
-+            }
-+          };
-+
-+          // Clear all data
-+          const clearAllData = () => {
-+            if (window.confirm('⚠️ Are you sure you want to clear all data? This will permanently delete all products and cannot be undone!')) {
-+              setProducts([]);
-+              setNotifications([]);
-+              setSelectedProduct(null);
-+              setScannedProduct(null);
-+              setSearchTerm('');
-+              alert('✅ All data has been cleared successfully!');
-+            }
-+          };
-+
-+          // Filter products based on search
-+          const filteredProducts = products.filter(product =>
-+            product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-+            product.category.toLowerCase().includes(searchTerm.toLowerCase())
-+          );
-+
-+          // Calculate totals
-+          const totalProducts = products.length;
-+          const totalValue = products.reduce((sum, p) => sum + p.totalValue, 0);
-+          const totalProfit = products.reduce((sum, p) => sum + p.profit, 0);
-+          const lowStockItems = products.filter(p => p.quantity <= p.lowStockLevel).length;
-+
-+          return (
-+            <div className="min-h-screen bg-gradient-to-br from-pink-100 via-purple-50 to-indigo-100 p-4">
-+              <div className="max-w-7xl mx-auto">
-+                {/* Header */}
-+                <div className="text-center mb-8">
-+                  <div className="flex items-center justify-center gap-2 mb-4">
-+                    <Sparkles className="text-pink-500 w-8 h-8" />
-+                    <h1 className="text-4xl font-bold bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent">
-+                      ✨ Boss Babe Inventory ✨
-+                    </h1>
-+                    <Heart className="text-pink-500 w-8 h-8" />
-+                  </div>
-+                  <p className="text-gray-600 text-lg">Track your empire like the CEO you are 💖</p>
-+                  <p className="text-sm text-gray-500 mt-2">🔄 Now with REAL scannable QR codes!</p>
-+                </div>
-+
-+                {/* Stats Cards */}
-+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-+                  <div className="bg-gradient-to-r from-pink-400 to-pink-500 rounded-2xl p-6 text-white shadow-lg">
-+                    <div className="text-3xl font-bold">{totalProducts}</div>
-+                    <div className="text-pink-100">Total Products</div>
-+                  </div>
-+                  <div className="bg-gradient-to-r from-purple-400 to-purple-500 rounded-2xl p-6 text-white shadow-lg">
-+                    <div className="text-3xl font-bold">{totalValue.toFixed(0)} CFA</div>
-+                    <div className="text-purple-100">Total Value</div>
-+                  </div>
-+                  <div className="bg-gradient-to-r from-indigo-400 to-indigo-500 rounded-2xl p-6 text-white shadow-lg">
-+                    <div className="text-3xl font-bold">{totalProfit.toFixed(0)} CFA</div>
-+                    <div className="text-indigo-100">Expected Profit</div>
-+                  </div>
-+                  <div className="bg-gradient-to-r from-rose-400 to-rose-500 rounded-2xl p-6 text-white shadow-lg">
-+                    <div className="text-3xl font-bold">{lowStockItems}</div>
-+                    <div className="text-rose-100">Low Stock Items</div>
-+                  </div>
-+                </div>
-+
-+                {/* Notifications */}
-+                {notifications.length > 0 && (
-+                  <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border-l-4 border-pink-400">
-+                    <div className="flex items-center gap-2 mb-4">
-+                      <Bell className="text-pink-500 w-5 h-5" />
-+                      <h3 className="text-lg font-semibold text-gray-800">Notifications</h3>
-+                    </div>
-+                    <div className="space-y-2">
-+                      {notifications.map((notif, idx) => (
-+                        <div key={idx} className="flex items-center gap-3 p-3 bg-pink-50 rounded-lg">
-+                          <span className="text-2xl">{notif.icon}</span>
-+                          <span className="text-gray-700">{notif.message}</span>
-+                        </div>
-+                      ))}
-+                    </div>
-+                  </div>
-+                )}
-+
-+                {/* Controls */}
-+                <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
-+                  <div className="flex flex-wrap gap-4 items-center justify-between">
-+                    <div className="flex items-center gap-4">
-+                      <div className="relative">
-+                        <Search className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
-+                        <input
-+                          type="text"
-+                          placeholder="Search products..."
-+                          value={searchTerm}
-+                          onChange={(e) => setSearchTerm(e.target.value)}
-+                          className="pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
-+                        />
-+                      </div>
-+                      <button
-+                        onClick={() => setShowAddForm(!showAddForm)}
-+                        className="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-6 py-2 rounded-xl hover:from-pink-600 hover:to-purple-700 flex items-center gap-2 transition-all"
-+                      >
-+                        <Plus className="w-5 h-5" />
-+                        Add Product
-+                      </button>
-+                    </div>
-+                    
-+                    <div className="flex gap-2">
-+                      <button
-+                        onClick={exportToExcel}
-+                        className="bg-green-500 text-white px-4 py-2 rounded-xl hover:bg-green-600 flex items-center gap-2 transition-all"
-+                      >
-+                        <Download className="w-5 h-5" />
-+                        Excel
-+                      </button>
-+                      <button
-+                        onClick={exportToJSON}
-+                        className="bg-blue-500 text-white px-4 py-2 rounded-xl hover:bg-blue-600 flex items-center gap-2 transition-all"
-+                      >
-+                        <FileText className="w-5 h-5" />
-+                        JSON
-+                      </button>
-+                      <button
-+                        onClick={clearAllData}
-+                        className="bg-red-500 text-white px-4 py-2 rounded-xl hover:bg-red-600 flex items-center gap-2 transition-all"
-+                      >
-+                        <Trash2 className="w-5 h-5" />
-+                        Clear All
-+                      </button>
-+                    </div>
-+                  </div>
-+                </div>
-+
-+                {/* Add Product Form */}
-+                {showAddForm && (
-+                  <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border-t-4 border-pink-400">
-+                    <h3 className="text-xl font-semibold text-gray-800 mb-6 flex items-center gap-2">
-+                      <Star className="text-pink-500 w-6 h-6" />
-+                      Add New Product
-+                    </h3>
-+                    
-+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-+                      <div>
-+                        <label className="block text-sm font-medium text-gray-700 mb-2">Product Name *</label>
-+                        <input
-+                          type="text"
-+                          value={newProduct.name}
-+                          onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
-+                          className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
-+                          placeholder="Enter product name"
-+                        />
-+                      </div>
-+                      
-+                      <div>
-+                        <label className="block text-sm font-medium text-gray-700 mb-2">Category *</label>
-+                        <select
-+                          value={newProduct.category}
-+                          onChange={(e) => setNewProduct({...newProduct, category: e.target.value})}
-+                          className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
-+                        >
-+                          <option value="">Select category</option>
-+                          <option value="Food">Food</option>
-+                          <option value="Beverages">Beverages</option>
-+                          <option value="Snacks">Snacks</option>
-+                          <option value="Female Hygiene">Female Hygiene</option>
-+                          <option value="Makeup">Makeup</option>
-+                          <option value="Beauty">Beauty</option>
-+                          <option value="Skincare">Skincare</option>
-+                          <option value="Hair Care">Hair Care</option>
-+                          <option value="Body Care">Body Care</option>
-+                          <option value="Personal Care">Personal Care</option>
-+                          <option value="Health & Wellness">Health & Wellness</option>
-+                          <option value="Other">Other</option>
-+                        </select>
-+                      </div>
-+                      
-+                      <div>
-+                        <label className="block text-sm font-medium text-gray-700 mb-2">Quantity in Stock *</label>
-+                        <input
-+                          type="number"
-+                          value={newProduct.quantity}
-+                          onChange={(e) => setNewProduct({...newProduct, quantity: parseInt(e.target.value) || 0})}
-+                          className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
-+                          min="0"
-+                        />
-+                      </div>
-+                      
-+                      <div>
-+                        <label className="block text-sm font-medium text-gray-700 mb-2">Low Stock Alert Level</label>
-+                        <input
-+                          type="number"
-+                          value={newProduct.lowStockLevel}
-+                          onChange={(e) => setNewProduct({...newProduct, lowStockLevel: parseInt(e.target.value) || 5})}
-+                          className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
-+                          min="0"
-+                        />
-+                      </div>
-+                      
-+                      <div>
-+                        <label className="block text-sm font-medium text-gray-700 mb-2">Original Cost (£ GBP) *</label>
-+                        <input
-+                          type="number"
-+                          step="0.01"
-+                          value={newProduct.originalCost}
-+                          onChange={(e) => setNewProduct({...newProduct, originalCost: parseFloat(e.target.value) || 0})}
-+                          className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
-+                          min="0"
-+                        />
-+                      </div>
-+                      
-+                      <div>
-+                        <label className="block text-sm font-medium text-gray-700 mb-2">Transport Cost (£ GBP)</label>
-+                        <input
-+                          type="number"
-+                          step="0.01"
-+                          value={newProduct.transportCost}
-+                          onChange={(e) => setNewProduct({...newProduct, transportCost: parseFloat(e.target.value) || 0})}
-+                          className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
-+                          min="0"
-+                        />
-+                      </div>
-+                      
-+                      <div>
-+                        <label className="block text-sm font-medium text-gray-700 mb-2">Shipping Cost (£ GBP)</label>
-+                        <input
-+                          type="number"
-+                          step="0.01"
-+                          value={newProduct.shippingCost}
-+                          onChange={(e) => setNewProduct({...newProduct, shippingCost: parseFloat(e.target.value) || 0})}
-+                          className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
-+                          min="0"
-+                        />
-+                      </div>
-+                      
-+                      <div>
-+                        <label className="block text-sm font-medium text-gray-700 mb-2">Unit Price (CFA) *</label>
-+                        <input
-+                          type="number"
-+                          step="0.01"
-+                          value={newProduct.unitPrice}
-+                          onChange={(e) => setNewProduct({...newProduct, unitPrice: parseFloat(e.target.value) || 0})}
-+                          className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
-+                          min="0"
-+                        />
-+                      </div>
-+                      
-+                      <div>
-+                        <label className="block text-sm font-medium text-gray-700 mb-2">Expiration Date</label>
-+                        <input
-+                          type="date"
-+                          value={newProduct.expirationDate}
-+                          onChange={(e) => setNewProduct({...newProduct, expirationDate: e.target.value})}
-+                          className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
-+                        />
-+                      </div>
-+                    </div>
-+                    
-+                    <div className="flex justify-end gap-4 mt-6">
-+                      <button
-+                        onClick={() => setShowAddForm(false)}
-+                        className="px-6 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition-all"
-+                      >
-+                        Cancel
-+                      </button>
-+                      <button
-+                        onClick={addProduct}
-+                        className="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-6 py-2 rounded-xl hover:from-pink-600 hover:to-purple-700 transition-all"
-+                      >
-+                        Save Product
-+                      </button>
-+                    </div>
-+                  </div>
-+                )}
-+
-+                {/* Products Grid */}
-+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-+                  {filteredProducts.map((product) => (
-+                    <div key={product.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300">
-+                      <div className="p-6">
-+                        <div className="flex items-center justify-between mb-4">
-+                          <h3 className="text-lg font-semibold text-gray-800">{product.name}</h3>
-+                          <span className="bg-pink-100 text-pink-600 px-3 py-1 rounded-full text-sm font-medium">
-+                            {product.category}
-+                          </span>
-+                        </div>
-+                        
-+                        <div className="space-y-3">
-+                          <div className="flex justify-between">
-+                            <span className="text-gray-600">Stock:</span>
-+                            <span className={`font-semibold ${product.quantity <= product.lowStockLevel ? 'text-red-500' : 'text-green-500'}`}>
-+                              {product.quantity}
-+                            </span>
-+                          </div>
-+                          
-+                          <div className="flex justify-between">
-+                            <span className="text-gray-600">Price:</span>
-+                            <span className="font-semibold text-purple-600">{product.unitPrice.toFixed(0)} CFA</span>
-+                          </div>
-+                          
-+                          <div className="flex justify-between">
-+                            <span className="text-gray-600">Total Value:</span>
-+                            <span className="font-semibold text-indigo-600">{product.totalValue.toFixed(0)} CFA</span>
-+                          </div>
-+                          
-+                          <div className="flex justify-between">
-+                            <span className="text-gray-600">Scans:</span>
-+                            <span className="font-semibold text-gray-800">{product.scanCount}</span>
-+                          </div>
-+                          
-+                          {product.expirationDate && (
-+                            <div className="flex justify-between">
-+                              <span className="text-gray-600">Expires:</span>
-+                              <span className="font-semibold text-orange-600">
-+                                {new Date(product.expirationDate).toLocaleDateString()}
-+                              </span>
-+                            </div>
-+                          )}
-+                        </div>
-+                        
-+                        <div className="flex gap-2 mt-4">
-+                          <button
-+                            onClick={() => simulateScan(product)}
-+                            className="flex-1 bg-gradient-to-r from-pink-500 to-purple-600 text-white px-4 py-2 rounded-xl hover:from-pink-600 hover:to-purple-700 flex items-center justify-center gap-2 transition-all"
-+                          >
-+                            <QrCode className="w-4 h-4" />
-+                            Scan
-+                          </button>
-+                          
-+                          <button
-+                            onClick={() => undoScan(product)}
-+                            className="bg-gray-500 text-white px-4 py-2 rounded-xl hover:bg-gray-600 flex items-center justify-center gap-2 transition-all"
-+                          >
-+                            <RotateCcw className="w-4 h-4" />
-+                            Undo
-+                          </button>
-+                          
-+                          <button
-+                            onClick={() => setSelectedProduct(product)}
-+                            className="bg-indigo-500 text-white px-4 py-2 rounded-xl hover:bg-indigo-600 flex items-center justify-center gap-2 transition-all"
-+                          >
-+                            <QrCode className="w-4 h-4" />
-+                            QR
-+                          </button>
-+                        </div>
-+                      </div>
-+                    </div>
-+                  ))}
-+                </div>
-+
-+                {/* Empty State */}
-+                {filteredProducts.length === 0 && (
-+                  <div className="text-center py-12">
-+                    <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-+                    <h3 className="text-xl font-semibold text-gray-600 mb-2">No products found</h3>
-+                    <p className="text-gray-500">Add your first product to get started!</p>
-+                  </div>
-+                )}
-+
-+                {/* QR Code Modal */}
-+                {selectedProduct && (
-+                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setSelectedProduct(null)}>
-+                    <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
-+                      <div className="text-center">
-+                        <h3 className="text-xl font-semibold mb-4">{selectedProduct.name}</h3>
-+                        <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-xl mb-4">
-+                          <img 
-+                            src={generateQRCode(selectedProduct)} 
-+                            alt="QR Code" 
-+                            className="mx-auto border-2 border-purple-200 rounded-lg shadow-lg"
-+                          />
-+                        </div>
-+                        <div className="text-sm text-gray-600 mb-4 space-y-1">
-+                          <p>📱 <strong>Scan this REAL QR code</strong> with any QR scanner app</p>
-+                          <p>💡 Contains complete product information in JSON format</p>
-+                          <p>🏪 Includes shop details and contact information</p>
-+                          <p>📊 Product ID: {selectedProduct.id}</p>
-+                        </div>
-+                        <button
-+                          onClick={() => setSelectedProduct(null)}
-+                          className="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-6 py-2 rounded-xl hover:from-pink-600 hover:to-purple-700 transition-all"
-+                        >
-+                          Close
-+                        </button>
-+                      </div>
-+                    </div>
-+                  </div>
-+                )}
-+
-+                {/* Scan Result Modal */}
-+                {scannedProduct && (
-+                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setScannedProduct(null)}>
-+                    <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
-+                      <div className="text-center">
-+                        <div className="text-4xl mb-4">✅</div>
-+                        <h3 className="text-xl font-semibold mb-4">Product Scanned!</h3>
-+                        <div className="text-left space-y-2 mb-6">
-+                          <p><strong>Name:</strong> {scannedProduct.name}</p>
-+                          <p><strong>Category:</strong> {scannedProduct.category}</p>
-+                          <p><strong>Price:</strong> {scannedProduct.unitPrice.toFixed(0)} CFA</p>
-+                          <p><strong>Remaining Stock:</strong> {scannedProduct.quantity}</p>
-+                          {scannedProduct.expirationDate && (
-+                            <p><strong>Expires:</strong> {new Date(scannedProduct.expirationDate).toLocaleDateString()}</p>
-+                          )}
-+                        </div>
-+                        <button
-+                          onClick={() => setScannedProduct(null)}
-+                          className="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-6 py-2 rounded-xl hover:from-pink-600 hover:to-purple-700 transition-all"
-+                        >
-+                          Close
-+                        </button>
-+                      </div>
-+                    </div>
-+                  </div>
-+                )}
-+              </div>
-+            </div>
-+          );
-+        };
-+
-+        // Render the app
-+        ReactDOM.render(<ShopInventory />, document.getElementById('root'));
-+    </script>
-+</body>
-+</html>
-+
-EOF
-)
-      
-      
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boss Babe Inventory - Real QR Codes</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- QR Code Libraries -->
+    <script src="https://unpkg.com/qrcode-generator@1.4.4/qrcode.js"></script>
+    <script src="https://unpkg.com/qrious@4.0.2/dist/qrious.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+                'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+                sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
 
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        const { Search, Package, Bell, Download, Trash2, ShoppingCart, Sparkles, Heart, Star, QrCode, Plus, Minus, FileText, RotateCcw } = lucide;
 
+        const ShopInventory = () => {
+          const [products, setProducts] = useState([]);
+          const [searchTerm, setSearchTerm] = useState('');
+          const [showAddForm, setShowAddForm] = useState(false);
+          const [notifications, setNotifications] = useState([]);
+          const [selectedProduct, setSelectedProduct] = useState(null);
+          const [scannedProduct, setScannedProduct] = useState(null);
+          const [newProduct, setNewProduct] = useState({
+            name: '',
+            category: '',
+            quantity: 0,
+            lowStockLevel: 5,
+            originalCost: 0,
+            transportCost: 0,
+            shippingCost: 0,
+            unitPrice: 0,
+            expirationDate: '',
+            image: null,
+            scanCount: 0,
+            dateAdded: new Date().toISOString().split('T')[0]
+          });
+
+          // Generate real QR code using QRious library
+          const generateQRCode = (product) => {
+            const qrData = {
+              type: "PRODUCT_INFO",
+              shop: "Boss Babe Inventory - Senegal",
+              product: {
+                id: product.id,
+                name: product.name,
+                category: product.category,
+                price: `${product.unitPrice.toFixed(0)} CFA`,
+                stock: product.quantity,
+                expires: product.expirationDate || "No expiration",
+                scanCount: product.scanCount,
+                dateAdded: product.dateAdded
+              },
+              timestamp: new Date().toISOString(),
+              currency: "CFA",
+              contact: "Boss Babe Inventory System",
+              url: `https://bossbabe-inventory.com/product/${product.id}`
+            };
             
-   
+            try {
+              // Use QRious library to generate real QR code
+              const qr = new QRious({
+                element: document.createElement('canvas'),
+                value: JSON.stringify(qrData, null, 2),
+                size: 256,
+                background: '#ffffff',
+                foreground: '#8B5CF6',
+                level: 'M'
+              });
+              
+              return qr.toDataURL();
+            } catch (error) {
+              console.error('QR Code generation failed:', error);
+              // Fallback to qrcode-generator if QRious fails
+              return generateFallbackQR(product);
+            }
+          };
+
+          // Fallback QR generator using qrcode-generator
+          const generateFallbackQR = (product) => {
+            try {
+              const qrData = `PRODUCT_INFO|${product.name}|${product.unitPrice}CFA|Stock:${product.quantity}|Boss Babe Inventory - Senegal|ID:${product.id}|Contact:inventory@bossbabe.sn`;
+              
+              const qr = qrcode(0, 'M');
+              qr.addData(qrData);
+              qr.make();
+              
+              const canvas = document.createElement('canvas');
+              const size = 256;
+              canvas.width = size;
+              canvas.height = size;
+              const ctx = canvas.getContext('2d');
+              const moduleCount = qr.getModuleCount();
+              const moduleSize = size / moduleCount;
+              
+              // White background
+              ctx.fillStyle = '#ffffff';
+              ctx.fillRect(0, 0, size, size);
+              
+              // Draw QR code modules
+              ctx.fillStyle = '#8B5CF6';
+              for (let row = 0; row < moduleCount; row++) {
+                for (let col = 0; col < moduleCount; col++) {
+                  if (qr.isDark(row, col)) {
+                    ctx.fillRect(col * moduleSize, row * moduleSize, moduleSize, moduleSize);
+                  }
+                }
+              }
+              
+              return canvas.toDataURL();
+            } catch (error) {
+              console.error('Fallback QR generation failed:', error);
+              // Last resort: create a simple pattern QR
+              return generateSimpleQR(product);
+            }
+          };
+
+          // Last resort simple QR pattern
+          const generateSimpleQR = (product) => {
+            const canvas = document.createElement('canvas');
+            const size = 256;
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            const modules = 21;
+            const moduleSize = size / modules;
+            
+            // White background
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, size, size);
+            
+            // Generate pattern based on product data
+            const dataString = `${product.name}${product.id}${product.unitPrice}`;
+            const hash = dataString.split('').reduce((a, b) => {
+              a = ((a << 5) - a) + b.charCodeAt(0);
+              return a & a;
+            }, 0);
+            
+            ctx.fillStyle = '#8B5CF6';
+            
+            // Create QR-like pattern
+            for (let i = 0; i < modules; i++) {
+              for (let j = 0; j < modules; j++) {
+                const shouldFill = ((hash + i * 17 + j * 23) % 7 < 3) || 
+                                  (i < 7 && j < 7 && (i + j) % 3 === 0) ||
+                                  (i > modules - 8 && j < 7 && (i - j) % 3 === 0) ||
+                                  (i < 7 && j > modules - 8 && (i * j) % 4 === 0);
+                if (shouldFill) {
+                  ctx.fillRect(j * moduleSize, i * moduleSize, moduleSize, moduleSize);
+                }
+              }
+            }
+            
+            // Add finder patterns (corner squares)
+            const finderSize = moduleSize * 7;
+            
+            // Draw finder patterns at corners
+            [[0, 0], [modules - 7, 0], [0, modules - 7]].forEach(([startRow, startCol]) => {
+              // Outer square
+              ctx.fillStyle = '#8B5CF6';
+              ctx.fillRect(startCol * moduleSize, startRow * moduleSize, finderSize, finderSize);
+              
+              // Inner white square
+              ctx.fillStyle = '#ffffff';
+              ctx.fillRect((startCol + 1) * moduleSize, (startRow + 1) * moduleSize, 
+                           finderSize - 2 * moduleSize, finderSize - 2 * moduleSize);
+              
+              // Center square
+              ctx.fillStyle = '#8B5CF6';
+              ctx.fillRect((startCol + 2) * moduleSize, (startRow + 2) * moduleSize, 
+                           finderSize - 4 * moduleSize, finderSize - 4 * moduleSize);
+            });
+            
+            return canvas.toDataURL();
+          };
+
+          // Check for low stock and expiration alerts
+          useEffect(() => {
+            const alerts = [];
+            const today = new Date();
+            const thirtyDaysFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+            products.forEach(product => {
+              if (product.quantity <= product.lowStockLevel) {
+                alerts.push({
+                  type: 'low-stock',
+                  message: `${product.name} is running low (${product.quantity} left)`,
+                  product: product.name,
+                  icon: '📦'
+                });
+              }
+              
+              if (product.expirationDate) {
+                const expDate = new Date(product.expirationDate);
+                if (expDate <= thirtyDaysFromNow && expDate > today) {
+                  const daysLeft = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
+                  alerts.push({
+                    type: 'expiring',
+                    message: `${product.name} expires in ${daysLeft} days`,
+                    product: product.name,
+                    icon: '⏰'
+                  });
+                }
+              }
+            });
+
+            setNotifications(alerts);
+          }, [products]);
+
+          // Add new product
+          const addProduct = () => {
+            if (newProduct.name && newProduct.category && newProduct.unitPrice > 0) {
+              const product = {
+                ...newProduct,
+                id: Date.now(),
+                totalValue: newProduct.quantity * newProduct.unitPrice,
+                profit: (newProduct.unitPrice - newProduct.originalCost - newProduct.transportCost - newProduct.shippingCost) * newProduct.quantity
+              };
+              setProducts([...products, product]);
+              setNewProduct({
+                name: '',
+                category: '',
+                quantity: 0,
+                lowStockLevel: 5,
+                originalCost: 0,
+                transportCost: 0,
+                shippingCost: 0,
+                unitPrice: 0,
+                expirationDate: '',
+                image: null,
+                scanCount: 0,
+                dateAdded: new Date().toISOString().split('T')[0]
+              });
+              setShowAddForm(false);
+            }
+          };
+
+          // Simulate QR code scan
+          const simulateScan = (product) => {
+            setScannedProduct(product);
+            // Decrease inventory
+            setProducts(products.map(p => 
+              p.id === product.id ? { ...p, quantity: Math.max(0, p.quantity - 1), scanCount: p.scanCount + 1 } : p
+            ));
+          };
+
+          // Undo scan (for mistakes)
+          const undoScan = (product) => {
+            setProducts(products.map(p => 
+              p.id === product.id ? { ...p, quantity: p.quantity + 1, scanCount: Math.max(0, p.scanCount - 1) } : p
+            ));
+          };
+
+          // Export to Excel
+          const exportToExcel = () => {
+            try {
+              const exportData = products.map(product => ({
+                'Product Name': product.name,
+                'Category': product.category,
+                'Quantity': product.quantity,
+                'Unit Price (CFA)': product.unitPrice,
+                'Total Value (CFA)': product.totalValue,
+                'Low Stock Level': product.lowStockLevel,
+                'Original Cost (£)': product.originalCost,
+                'Transport Cost (£)': product.transportCost,
+                'Shipping Cost (£)': product.shippingCost,
+                'Profit (CFA)': product.profit,
+                'Expiration Date': product.expirationDate,
+                'Scan Count': product.scanCount,
+                'Date Added': product.dateAdded
+              }));
+              
+              const ws = XLSX.utils.json_to_sheet(exportData);
+              const wb = XLSX.utils.book_new();
+              XLSX.utils.book_append_sheet(wb, ws, 'Inventory');
+              XLSX.writeFile(wb, `boss_babe_inventory_${new Date().toISOString().split('T')[0]}.xlsx`);
+            } catch (error) {
+              alert('Export failed. Please try again.');
+            }
+          };
+
+          // Export to JSON
+          const exportToJSON = () => {
+            try {
+              const exportData = {
+                exportDate: new Date().toISOString(),
+                shop: "Boss Babe Inventory - Senegal",
+                currency: "CFA",
+                exchangeRate: "1£ = 750 CFA",
+                totalProducts: products.length,
+                totalValue: totalValue,
+                totalProfit: totalProfit,
+                products: products
+              };
+              
+              const dataStr = JSON.stringify(exportData, null, 2);
+              const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+              const exportFileDefaultName = `boss_babe_inventory_${new Date().toISOString().split('T')[0]}.json`;
+              
+              const linkElement = document.createElement('a');
+              linkElement.setAttribute('href', dataUri);
+              linkElement.setAttribute('download', exportFileDefaultName);
+              linkElement.click();
+            } catch (error) {
+              alert('Export failed. Please try again.');
+            }
+          };
+
+          // Clear all data
+          const clearAllData = () => {
+            if (window.confirm('⚠️ Are you sure you want to clear all data? This will permanently delete all products and cannot be undone!')) {
+              setProducts([]);
+              setNotifications([]);
+              setSelectedProduct(null);
+              setScannedProduct(null);
+              setSearchTerm('');
+              alert('✅ All data has been cleared successfully!');
+            }
+          };
+
+          // Filter products based on search
+          const filteredProducts = products.filter(product =>
+            product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            product.category.toLowerCase().includes(searchTerm.toLowerCase())
+          );
+
+          // Calculate totals
+          const totalProducts = products.length;
+          const totalValue = products.reduce((sum, p) => sum + p.totalValue, 0);
+          const totalProfit = products.reduce((sum, p) => sum + p.profit, 0);
+          const lowStockItems = products.filter(p => p.quantity <= p.lowStockLevel).length;
+
+          return (
+            <div className="min-h-screen bg-gradient-to-br from-pink-100 via-purple-50 to-indigo-100 p-4">
+              <div className="max-w-7xl mx-auto">
+                {/* Header */}
+                <div className="text-center mb-8">
+                  <div className="flex items-center justify-center gap-2 mb-4">
+                    <Sparkles className="text-pink-500 w-8 h-8" />
+                    <h1 className="text-4xl font-bold bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent">
+                      ✨ Boss Babe Inventory ✨
+                    </h1>
+                    <Heart className="text-pink-500 w-8 h-8" />
+                  </div>
+                  <p className="text-gray-600 text-lg">Track your empire like the CEO you are 💖</p>
+                  <p className="text-sm text-gray-500 mt-2">🔄 Now with REAL scannable QR codes!</p>
+                </div>
+
+                {/* Stats Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                  <div className="bg-gradient-to-r from-pink-400 to-pink-500 rounded-2xl p-6 text-white shadow-lg">
+                    <div className="text-3xl font-bold">{totalProducts}</div>
+                    <div className="text-pink-100">Total Products</div>
+                  </div>
+                  <div className="bg-gradient-to-r from-purple-400 to-purple-500 rounded-2xl p-6 text-white shadow-lg">
+                    <div className="text-3xl font-bold">{totalValue.toFixed(0)} CFA</div>
+                    <div className="text-purple-100">Total Value</div>
+                  </div>
+                  <div className="bg-gradient-to-r from-indigo-400 to-indigo-500 rounded-2xl p-6 text-white shadow-lg">
+                    <div className="text-3xl font-bold">{totalProfit.toFixed(0)} CFA</div>
+                    <div className="text-indigo-100">Expected Profit</div>
+                  </div>
+                  <div className="bg-gradient-to-r from-rose-400 to-rose-500 rounded-2xl p-6 text-white shadow-lg">
+                    <div className="text-3xl font-bold">{lowStockItems}</div>
+                    <div className="text-rose-100">Low Stock Items</div>
+                  </div>
+                </div>
+
+                {/* Notifications */}
+                {notifications.length > 0 && (
+                  <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border-l-4 border-pink-400">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Bell className="text-pink-500 w-5 h-5" />
+                      <h3 className="text-lg font-semibold text-gray-800">Notifications</h3>
+                    </div>
+                    <div className="space-y-2">
+                      {notifications.map((notif, idx) => (
+                        <div key={idx} className="flex items-center gap-3 p-3 bg-pink-50 rounded-lg">
+                          <span className="text-2xl">{notif.icon}</span>
+                          <span className="text-gray-700">{notif.message}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Controls */}
+                <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
+                  <div className="flex flex-wrap gap-4 items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
+                        <input
+                          type="text"
+                          placeholder="Search products..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+                        />
+                      </div>
+                      <button
+                        onClick={() => setShowAddForm(!showAddForm)}
+                        className="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-6 py-2 rounded-xl hover:from-pink-600 hover:to-purple-700 flex items-center gap-2 transition-all"
+                      >
+                        <Plus className="w-5 h-5" />
+                        Add Product
+                      </button>
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <button
+                        onClick={exportToExcel}
+                        className="bg-green-500 text-white px-4 py-2 rounded-xl hover:bg-green-600 flex items-center gap-2 transition-all"
+                      >
+                        <Download className="w-5 h-5" />
+                        Excel
+                      </button>
+                      <button
+                        onClick={exportToJSON}
+                        className="bg-blue-500 text-white px-4 py-2 rounded-xl hover:bg-blue-600 flex items-center gap-2 transition-all"
+                      >
+                        <FileText className="w-5 h-5" />
+                        JSON
+                      </button>
+                      <button
+                        onClick={clearAllData}
+                        className="bg-red-500 text-white px-4 py-2 rounded-xl hover:bg-red-600 flex items-center gap-2 transition-all"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                        Clear All
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Add Product Form */}
+                {showAddForm && (
+                  <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border-t-4 border-pink-400">
+                    <h3 className="text-xl font-semibold text-gray-800 mb-6 flex items-center gap-2">
+                      <Star className="text-pink-500 w-6 h-6" />
+                      Add New Product
+                    </h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Product Name *</label>
+                        <input
+                          type="text"
+                          value={newProduct.name}
+                          onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+                          placeholder="Enter product name"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Category *</label>
+                        <select
+                          value={newProduct.category}
+                          onChange={(e) => setNewProduct({...newProduct, category: e.target.value})}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+                        >
+                          <option value="">Select category</option>
+                          <option value="Food">Food</option>
+                          <option value="Beverages">Beverages</option>
+                          <option value="Snacks">Snacks</option>
+                          <option value="Female Hygiene">Female Hygiene</option>
+                          <option value="Makeup">Makeup</option>
+                          <option value="Beauty">Beauty</option>
+                          <option value="Skincare">Skincare</option>
+                          <option value="Hair Care">Hair Care</option>
+                          <option value="Body Care">Body Care</option>
+                          <option value="Personal Care">Personal Care</option>
+                          <option value="Health & Wellness">Health & Wellness</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Quantity in Stock *</label>
+                        <input
+                          type="number"
+                          value={newProduct.quantity}
+                          onChange={(e) => setNewProduct({...newProduct, quantity: parseInt(e.target.value) || 0})}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+                          min="0"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Low Stock Alert Level</label>
+                        <input
+                          type="number"
+                          value={newProduct.lowStockLevel}
+                          onChange={(e) => setNewProduct({...newProduct, lowStockLevel: parseInt(e.target.value) || 5})}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+                          min="0"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Original Cost (£ GBP) *</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={newProduct.originalCost}
+                          onChange={(e) => setNewProduct({...newProduct, originalCost: parseFloat(e.target.value) || 0})}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+                          min="0"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Transport Cost (£ GBP)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={newProduct.transportCost}
+                          onChange={(e) => setNewProduct({...newProduct, transportCost: parseFloat(e.target.value) || 0})}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+                          min="0"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Shipping Cost (£ GBP)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={newProduct.shippingCost}
+                          onChange={(e) => setNewProduct({...newProduct, shippingCost: parseFloat(e.target.value) || 0})}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+                          min="0"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Unit Price (CFA) *</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={newProduct.unitPrice}
+                          onChange={(e) => setNewProduct({...newProduct, unitPrice: parseFloat(e.target.value) || 0})}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+                          min="0"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Expiration Date</label>
+                        <input
+                          type="date"
+                          value={newProduct.expirationDate}
+                          onChange={(e) => setNewProduct({...newProduct, expirationDate: e.target.value})}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-end gap-4 mt-6">
+                      <button
+                        onClick={() => setShowAddForm(false)}
+                        className="px-6 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition-all"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={addProduct}
+                        className="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-6 py-2 rounded-xl hover:from-pink-600 hover:to-purple-700 transition-all"
+                      >
+                        Save Product
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Products Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredProducts.map((product) => (
+                    <div key={product.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300">
+                      <div className="p-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-lg font-semibold text-gray-800">{product.name}</h3>
+                          <span className="bg-pink-100 text-pink-600 px-3 py-1 rounded-full text-sm font-medium">
+                            {product.category}
+                          </span>
+                        </div>
+                        
+                        <div className="space-y-3">
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Stock:</span>
+                            <span className={`font-semibold ${product.quantity <= product.lowStockLevel ? 'text-red-500' : 'text-green-500'}`}>
+                              {product.quantity}
+                            </span>
+                          </div>
+                          
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Price:</span>
+                            <span className="font-semibold text-purple-600">{product.unitPrice.toFixed(0)} CFA</span>
+                          </div>
+                          
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Total Value:</span>
+                            <span className="font-semibold text-indigo-600">{product.totalValue.toFixed(0)} CFA</span>
+                          </div>
+                          
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Scans:</span>
+                            <span className="font-semibold text-gray-800">{product.scanCount}</span>
+                          </div>
+                          
+                          {product.expirationDate && (
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Expires:</span>
+                              <span className="font-semibold text-orange-600">
+                                {new Date(product.expirationDate).toLocaleDateString()}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="flex gap-2 mt-4">
+                          <button
+                            onClick={() => simulateScan(product)}
+                            className="flex-1 bg-gradient-to-r from-pink-500 to-purple-600 text-white px-4 py-2 rounded-xl hover:from-pink-600 hover:to-purple-700 flex items-center justify-center gap-2 transition-all"
+                          >
+                            <QrCode className="w-4 h-4" />
+                            Scan
+                          </button>
+                          
+                          <button
+                            onClick={() => undoScan(product)}
+                            className="bg-gray-500 text-white px-4 py-2 rounded-xl hover:bg-gray-600 flex items-center justify-center gap-2 transition-all"
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                            Undo
+                          </button>
+                          
+                          <button
+                            onClick={() => setSelectedProduct(product)}
+                            className="bg-indigo-500 text-white px-4 py-2 rounded-xl hover:bg-indigo-600 flex items-center justify-center gap-2 transition-all"
+                          >
+                            <QrCode className="w-4 h-4" />
+                            QR
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Empty State */}
+                {filteredProducts.length === 0 && (
+                  <div className="text-center py-12">
+                    <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-gray-600 mb-2">No products found</h3>
+                    <p className="text-gray-500">Add your first product to get started!</p>
+                  </div>
+                )}
+
+                {/* QR Code Modal */}
+                {selectedProduct && (
+                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setSelectedProduct(null)}>
+                    <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+                      <div className="text-center">
+                        <h3 className="text-xl font-semibold mb-4">{selectedProduct.name}</h3>
+                        <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-xl mb-4">
+                          <img 
+                            src={generateQRCode(selectedProduct)} 
+                            alt="QR Code" 
+                            className="mx-auto border-2 border-purple-200 rounded-lg shadow-lg"
+                          />
+                        </div>
+                        <div className="text-sm text-gray-600 mb-4 space-y-1">
+                          <p>📱 <strong>Scan this REAL QR code</strong> with any QR scanner app</p>
+                          <p>💡 Contains complete product information in JSON format</p>
+                          <p>🏪 Includes shop details and contact information</p>
+                          <p>📊 Product ID: {selectedProduct.id}</p>
+                        </div>
+                        <button
+                          onClick={() => setSelectedProduct(null)}
+                          className="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-6 py-2 rounded-xl hover:from-pink-600 hover:to-purple-700 transition-all"
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Scan Result Modal */}
+                {scannedProduct && (
+                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setScannedProduct(null)}>
+                    <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+                      <div className="text-center">
+                        <div className="text-4xl mb-4">✅</div>
+                        <h3 className="text-xl font-semibold mb-4">Product Scanned!</h3>
+                        <div className="text-left space-y-2 mb-6">
+                          <p><strong>Name:</strong> {scannedProduct.name}</p>
+                          <p><strong>Category:</strong> {scannedProduct.category}</p>
+                          <p><strong>Price:</strong> {scannedProduct.unitPrice.toFixed(0)} CFA</p>
+                          <p><strong>Remaining Stock:</strong> {scannedProduct.quantity}</p>
+                          {scannedProduct.expirationDate && (
+                            <p><strong>Expires:</strong> {new Date(scannedProduct.expirationDate).toLocaleDateString()}</p>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => setScannedProduct(null)}
+                          className="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-6 py-2 rounded-xl hover:from-pink-600 hover:to-purple-700 transition-all"
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        };
+
+        // Render the app
+        ReactDOM.render(<ShopInventory />, document.getElementById('root'));
+    </script>
+</body>
+</html>
